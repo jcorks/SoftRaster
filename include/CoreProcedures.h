@@ -1,8 +1,11 @@
 #ifndef H_SOFTRASTER_CORE_PROCEDURE_INCLUDED
 #define H_SOFTRASTER_CORE_PROCEDURE_INCLUDED
 
+#include <SoftRaster/StageProcedure.h>
 
 namespace SoftRaster {
+
+/// \brief Holds built-in ShaderProcedures
 class CoreProcedure {
 
     enum class ID {
@@ -13,7 +16,9 @@ class CoreProcedure {
 
 
 
-    static ShaderProcedure * Get(Stages);
+    /// \brief creates a new instance of the specified ShaderProcedure.
+    ///
+    static StageProcedure * Create(ID);
 
 
 };

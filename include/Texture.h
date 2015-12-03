@@ -8,20 +8,20 @@ namespace SoftRaster {
 class Texture {
   public:
     Texture();
-    Texture(int w_, int h_, uint8_t * data_);
+    Texture(uint16_t w_, uint16_t h_, uint8_t * data_);
     ~Texture();
 
 
-    inline int Width() {return w;} const
-    inline int Height(){return h;} const
+    inline uint16_t Width() {return w;} const
+    inline uint16_t Height(){return h;} const
 
     uint8_t * GetData() {return data;}
 
     // Resize putting old texData in topleft
-    void Resize(int newWidth, int newHeight);
+    void Resize(uint16_t newWidth, uint16_t newHeight);
     
     // Resize without copying old tex data
-    void ResizeFast(int newWidth, int newHeight);
+    void ResizeFast(uint16_t newWidth, uint16_t newHeight);
 
     // Replace old texture data with this data.
     void Redefine(uint8_t * data, int newWidth, int newHeight);
@@ -51,19 +51,21 @@ class Texture {
 
     
     // follows color rules
-    void PutPixel  (int x, int y, uint8_t * pixel);
-    void GetPixel  (int x, int y, uint8_t * pixel);
+    void PutPixel  (uint16_t x, uint16_t y, uint8_t * pixel);
+
+
+    void GetPixel  (uint16_t x, uint16_t y, uint8_t * pixel);
     void SamplePixel(float x, float y, uint8_t * pixel);
 
 
     // follows color Rules
     // texels outside the destination texel array are thrown out
-    void PutTexture(int x, int y, int maxW, int maxH, Texture * t);
+    void PutTexture(uint16_t x, uint16_t y, uint16_t maxW, uint16_t maxH, Texture * t);
     
 
   private:
 
-    int w, h;
+    uint16_t w, h;
     uint8_t * data;
 };
 }

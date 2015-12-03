@@ -65,6 +65,7 @@ class Pipeline {
     Program * Compile();
 
     /// \brief Rids the pipeline of all pushed stages.
+    ///
     void ClearPipeline();
 
   private:
