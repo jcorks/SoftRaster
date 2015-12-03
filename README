@@ -1,0 +1,79 @@
+
+SoftRaster - Generalized Pipeline Software Rasterizer
+===========------------------------------------------
+
+Johnathan Corkery, 2015
+
+Yet another software rasterizer in C++.
+This may be the option for you if you want a rasterizer that has these traits:
+    - No external requirements, completely in standard C++11.
+    - Any number of shader stages can be defined
+    - User-defined pipeline: you decide how the pipeline is assembled
+    - Texturing
+
+
+
+Version
+-------
+
+- v0.01 Interface started
+
+
+
+About 
+-----
+
+
+What makes SoftRaster different is the flexibility of the graphics pipeline.
+Typically the graphics pipline is a fixed structure and the user decides how each
+section of the pipeline is run. With SoftRaster, the pipeline is assembled by the user 
+manually with few calls. The only defined restriction is the beginning and end:
+
+
+  +----------------------------------------------------------------------<----+
+  |                                                                           |
+User       +----------+    +--------+        +---------+     +-----------+    |
+Program    |          |    |  User  |        |  User   |     | Fragment  |    |
+  |        | Vertices |    | Stage1 |        | Stage N |     | Results to|    |
+  +------> |          |--> |        |-->(...)|         | --> | Texture   | ---+
+           +----------+    +--------+        +---------+     +-----------+
+
+Each stage is much like a Shader compilation unit in accelerated graphics toolkits.
+However, there is no limitation in terms of the structure and the number of stages.
+In fact, the actual rasterization process is also a stage that is assigned by the user.
+
+
+Design considerations:
+The design choices favor speed and simplicity, but honestly the interface makes it
+pretty easy to shoot yourself in the foot, especially when running the pipeline.
+When first developing your pipeline stages
+
+
+This was orignally started as a software rendering backend for Dynacoe, but 
+is more an educational tool than anything else. Who knows, this could even be useful
+
+
+
+
+
+
+
+
+
+Building
+--------
+
+Although the build script requires make and gcc, C++11 is the only requirement to
+build the library. No external libraries are required.
+
+
+Usage
+-----
+
+coming soon
+
+
+License
+-------
+
+coming soon
