@@ -38,11 +38,6 @@ class StageProcedure {
     /// procedure runs this stage.
     ///
     inline uint32_t GetIterationCount()const    { return procIterCount;   }
-    
-    /// \brief Returns the size of the vertex set that was run with
-    ///
-    inline uint32_t GetVertexSize()const        { return sizeofVertex;    }
-
 
     /// \brief Returns the framebuffer
     ///
@@ -50,42 +45,65 @@ class StageProcedure {
 
 
 
-    /// \brief Returns the number of bytes that will be read upon each execution
+
+    class AttributeBlock {
+      public:
+        void Add(DataType);
+      private:
+        friend class StageProcedure;
+        std::stack<DataType> types;
+    };
+
+    /// \brief Returns the types and numbers of values that will be 
+    /// read during each iteration
     ///
-    virtual uint32_t InputBytesToRead() const = 0;
+    virtual AttributeBlock InputSignature() = 0;
 
     /// \brief Returns the number of bytes that will be written to for each
     /// iteration that writes
     ///
-    virtual uint32_t OutputBytesToWrite() const  = 0;
+    virtual AttributeBlock OuptutSignature() = 0;
 
     /// \brief Holds the runtime information for each iteration of the Procedure.
     ///
     /// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
-    /// during the running of the procedure
+    /// during the running of the procedure. The IO state is governed by  
+    /// the AttributeBlock's assigned in InputSignature() and OutputSignature(). 
     ///
     class RuntimeIO {
       public:
 
-        /// \brief Reads the next sizeof(T) bytes as a pointer to a variable to type T.
+        /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
         ///
-        template<typename T>
-        T * Read<T>() { iterIn+=sizeof(T); return static_cast<T*>(DataIn+(iter-sizeof(T))); }   
+        DataPrimitive * ReadNext();
+
+        /// \brief Reads all the remaning queued bytes for this iteration
+        ///
+        DataPrimitive * ReadSlot(uint32_t slot);
+
+
 
         /// \brief Writes data to be given to the next stage
         ///
-        template<typename T>
-        void Write(T * data) { iterOut+=sizeof(T); memcpy(DataOut+(iter-sizeof(T)), data, sizeof(T)); } 
+        WriteNext(DataPrimitive *);
+
+        /// \brief Writes the data to the slot assigned in the InputSignature() call.
+        ///
+        WriteSlot(uint32_t slot, DataPrimitive *);
+
 
         /// \brief Commits the written data and marks the end of the output iteration
         ///
         void Commit();
         
+        /// \brief Returns the size of the data type
+        ///
+        uint32_t SizeOf(DataType);
 
 
       private:
         friend class StageProcedure;
-        RuntimeIO(StageProcedure *);
+        RuntimeIO(StageProcedure *, uint32_t sizeofVertex);
         uint32_t iterIn;
         uint32_t iterOut;
         uint32_t sizeIn;
@@ -103,11 +121,16 @@ class StageProcedure {
     virtual void operator(Runtime *) = 0;
 
   private:
-    void RuntimeSetup(uint32_t sizeofVertex_);
+    void RuntimeSetup(
+        uint32_t sizeofVertex_,
+        uint8_t inputBuffer,
+        uint8_t outputBuffer
+    );
 
     uint32_t currentProcIter;
     uint32_t procIterCount;;
     uint32_t sizeofVertex;
+
     RuntimeIO * current;
     Texture * fb;
 

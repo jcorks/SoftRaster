@@ -46,6 +46,8 @@ class Pipeline {
         std::vector<ShaderProcedure*> cachedProcs;
         Texture src;    
         std::string status;
+        uint8_t * inputCache;
+        uint8_t * outputCache;
     };
 
 
