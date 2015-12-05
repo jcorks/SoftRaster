@@ -15,19 +15,19 @@ enum class DataType {
 };
 
 
-struct Vector2 : public DataPrimitve {
+struct Vector2 {
     float x;
     float y;
 };
 
-struct Vector3 : public DataPrimitive {
+struct Vector3 {
     float x;
     float y;
     float z;
 };
 
 
-struct Vector4 : public DataPrimitive {
+struct Vector4 {
     float x;
     float y;
     float z;
@@ -35,7 +35,7 @@ struct Vector4 : public DataPrimitive {
 };
 
 
-struct Mat4 : public DataPrimitive {
+struct Mat4 {
     float x0; float x1 float x2; float x3;
     float y0; float y1 float y2; float y3;
     float z0; float z1 float z2; float z3;

@@ -11,7 +11,7 @@ class CoreProcedure {
     enum class ID {
         RasterizeTriangles, // previous stage must write out sizeof vertex bytes
         RasterizeLines,     // previous stage must write out sizeof vertex bytes
-        
+        Renderer,           ///< Commits incoming pixels to the framebuffer (Though in the interest of speed, you may want to directly write fragments to the framebuffer in your fragment shader instead of formatting them through another stage)
     };
 
 

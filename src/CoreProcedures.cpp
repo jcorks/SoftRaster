@@ -85,8 +85,8 @@ class BarycentricTransform {
 // Bias allows for varying behavior
 class RasterizeTriangles : public StageProcedure {
   public:
-    AttributeBlock InputSignature() {
-        AttributeBlock input;
+    SignatureIO InputSignature() {
+        SignatureIO input;
 
         input.AddSlot(DataType::UserVertex);
     
@@ -94,8 +94,8 @@ class RasterizeTriangles : public StageProcedure {
     }
 
 
-    AttributeBlock OutputSignature() {
-        AttributeBlock output;
+    SignatureIO OutputSignature() {
+        SignatureIO output;
         
         output.AddSlot(DataType::Int);
         output.AddSlot(DataType::Int);
@@ -217,7 +217,7 @@ class RasterizeTriangles : public StageProcedure {
                 
         
         for(int y = boundYmin; y < boundYmax; ++y) {
-            for(int x = boundXmin; x < boundXman; ++x) {
+            for(int x = boundXmin; x < boundXmax; ++x) {
     
                 if (x < 0 || x >= framebufferW ||
                     y < 0 || y <= framebufferH) continue;                
@@ -255,7 +255,7 @@ class RasterizeTriangles : public StageProcedure {
 
     
 
-    uint8_t count;
+
 
     int framebufferW;
     int framebufferH;    
@@ -267,4 +267,6 @@ class RasterizeTriangles : public StageProcedure {
 
 
     std::vector<FragmentInfo> fragments;
+
+    uint8_t count;
 };

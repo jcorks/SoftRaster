@@ -34,15 +34,15 @@ by the user manually with few calls. The only defined restriction is the beginni
 
   +----------------------------------------------------------------------<----+
   |                                                                           |
-User       +----------+    +--------+        +---------+     +-----------+    |
-Program    |          |    |  User  |        |  User   |     | Fragment  |    |
-  |        | Vertices |    | Stage1 |        | Stage N |     | Results to|    |
-  +------> |          |--> |        |-->(...)|         | --> | Texture   | ---+
-           +----------+    +--------+        +---------+     +-----------+
+User       +----------+    +--------+        +---------+     +------------+    |
+Program    |          |    |  User  |        |  User   |     | Fragment   |    |
+  |        | Vertices |    | Stage1 |        | Stage N |     | Results to |    |
+  +------> |          |--> |        |-->(...)|         | --> | Framebuffer| ---+
+           +----------+    +--------+        +---------+     +------------+
 
 Each stage is much like a Shader compilation unit in accelerated graphics toolkits.
-However, there is no limitation in terms of the structure and the number of stages.
-In fact, the actual rasterization process is also a stage that is assigned by the user.
+However, in SoftRaster there is no limitation in terms of the structure and the number of stages.
+In fact, even the actual rasterization process is a stage that is assigned by the user.
 
 That sounds like a bit of work, but SoftRaster provides "Core Stages" that you can 
 insert into your Pipeline construct.

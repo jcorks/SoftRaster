@@ -29,25 +29,117 @@ class Pipeline {
         ///
         std::string GetStatus();
 
-        /// \brief Returns whether the Program is in a valid state
-        ///
-        /// If the program is in an invlaid state, it cannot be run
-        bool IsValid() {return cachedProcs.size();}
-
         /// \brief Runs the program stages with the given data.
         /// The first stage will run over all vertices and the last stage
         /// must write a texture pointer.
-        Run(Texture * texture, uint8_t * v, uint32_t sizeofVertex, uint32_t num);
+        void Run(
+            Texture * framebuffer, 
+            uint8_t * v, 
+            uint32_t sizeofVertex, 
+            uint32_t num
+        );
+
+
+        /// \brief Holds the runtime information for each iteration of the Procedure.
+        ///
+        /// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
+        /// during the running of the procedure. The IO state is governed by  
+        /// the AttributeBlock's assigned in InputSignature() and OutputSignature(). 
+        ///
+        class RuntimeIO {
+          public:
+            RuntimeIO;
+
+            /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
+            ///
+            template<typename T>
+            T * ReadNext<T>();
+
+            /// \brief Reads all the remaning queued bytes for this iteration
+            ///
+            template<typename T>
+            T * ReadSlot<T>(uint32_t slot);
+
+
+
+            /// \brief Writes data to be given to the next stage
+            ///
+            template<typename T>
+            WriteNext(T *);
+
+            /// \brief Writes the data to the slot assigned in the InputSignature() call.
+            ///
+            template<typename T>
+            WriteSlot(uint32_t slot, T *);
+
+
+
+
+            /// \brief Retuns whether the execution unit has reached the last iteration.
+            ///
+            inline bool IsLastIteration()const          { return currentProcIter+1 == procIterCount; }
+
+            /// \brief Returns the current iteration of the procedure.
+            ///
+            inline uint32_t GetCurrentIteration() const { return currentProcIter; }
+
+            /// \brief Returns the total number of iterations that this
+            /// procedure runs this stage.
+            ///
+            inline uint32_t GetIterationCount()const    { return procIterCount;   }
+
+            /// \brief Returns the framebuffer
+            ///
+            inline Texture * GetFramebuffer() { return fb; }
+
+
+
+            /// \brief Commits the written data and marks the end of the output iteration
+            ///
+            void Commit();
+            
+            /// \brief Returns the size of the data type
+            ///
+            uint32_t SizeOf(DataType);
+
+
+          private:
+            friend class Program;
+            void RunSetup(uint8_t * vdata, uint32_t szVertex, uint32_t numIterations);
+            void NextProc(const StageProcedure *);
+            void NextIter();
+            void PrepareInputCache(uint32_t bytes);
+            void PrepareInputCache(uint32_t bytes);
+            
+
+            uint32_t iterIn;    
+            uint32_t iterOut;
+            uint32_t inputSize;
+            uint32_t outputSize;
+
+            uint32_t sizeofVertex;
+            uint32_t currentProcIter;
+            uint32_t procIterCount;
+            uint32_t commitCount;
+
+            std::vector<uint32_t> argSizeIn;
+            std::vector<uint32_t> argSizeOut;
+
+            uint8_t * inputCache;
+            uint8_t * outputCache;
+            uint32_t inputCacheSize;
+            uint32_t outputCacheSize;
+        }
+
 
         ~Program();
 
       private:
-        Program(const std::string s) : status(s); 
+        friend class Program;
+        Program(const std::string s);
         std::vector<ShaderProcedure*> cachedProcs;
-        Texture src;    
+        Texture * src;    
         std::string status;
-        uint8_t * inputCache;
-        uint8_t * outputCache;
     };
 
 
@@ -68,7 +160,7 @@ class Pipeline {
 
     /// \brief Rids the pipeline of all pushed stages.
     ///
-    void ClearPipeline();
+    void Clear();
 
   private:
     std::vector<ShaderProcedure*> procs;
