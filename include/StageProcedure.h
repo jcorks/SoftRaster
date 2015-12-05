@@ -32,7 +32,7 @@ class StageProcedure {
     class SignatureIO {
       public:
         SignatureIO(const std::vector<DataType> &);
-        SignatureIO();
+        SignatureIO(){};
 
         /// \brief pushes a data type to the IO signature;
         ///
@@ -40,7 +40,7 @@ class StageProcedure {
         
         /// \brief Returns whether two SignatureIO instances match.
         ///
-        bool operator==(const SignatrueIO & )const;             
+        bool operator==(const SignatureIO & )const;             
 
         /// \brief Returns a queue of DataTypes with 
         /// the first argument at the top of the stack;

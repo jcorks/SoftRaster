@@ -48,21 +48,21 @@ class Pipeline {
         ///
         class RuntimeIO {
           public:
-            RuntimeIO;
+            RuntimeIO();
 
             /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
             ///
             template<typename T>
             T * ReadNext<T>();
 
-            /// \brief Reads all the remaning queued bytes for this iteration
+            /// \brief Reads the slot'th variable in the input. This does not affect ReadNext calls.
             ///
             template<typename T>
             T * ReadSlot<T>(uint32_t slot);
 
 
 
-            /// \brief Writes data to be given to the next stage
+            /// \brief Writes the next registered data slot to be passed
             ///
             template<typename T>
             WriteNext(T *);
@@ -70,7 +70,7 @@ class Pipeline {
             /// \brief Writes the data to the slot assigned in the InputSignature() call.
             ///
             template<typename T>
-            WriteSlot(uint32_t slot, T *);
+            WriteSlot(uint32_t slot, const T *);
 
 
 
@@ -105,15 +105,15 @@ class Pipeline {
 
           private:
             friend class Program;
-            void RunSetup(uint8_t * vdata, uint32_t szVertex, uint32_t numIterations);
+            void RunSetup(uint8_t * vdata, uint32_t szVertex, uint32_t numIterations, Texture *);
             void NextProc(const StageProcedure *);
             void NextIter();
             void PrepareInputCache(uint32_t bytes);
-            void PrepareInputCache(uint32_t bytes);
+            void PrepareOutputputCache(uint32_t bytes);
             
 
-            uint32_t iterIn;    
-            uint32_t iterOut;
+            uint32_t iterSlotIn;    
+            uint32_t iterSlotOut;
             uint32_t inputSize;
             uint32_t outputSize;
 
@@ -122,13 +122,15 @@ class Pipeline {
             uint32_t procIterCount;
             uint32_t commitCount;
 
-            std::vector<uint32_t> argSizeIn;
-            std::vector<uint32_t> argSizeOut;
+            std::vector<uint32_t> argInLocs;
+            std::vector<uint32_t> argOutLocs;
 
             uint8_t * inputCache;
             uint8_t * outputCache;
             uint32_t inputCacheSize;
             uint32_t outputCacheSize;
+    
+            Texture * fb;
         }
 
 
@@ -166,7 +168,7 @@ class Pipeline {
     std::vector<ShaderProcedure*> procs;
 
 };
-
+#include "PipelineImpl.hpp"
 }
 
 

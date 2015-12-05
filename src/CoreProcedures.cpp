@@ -115,10 +115,11 @@ class RasterizeTriangles : public StageProcedure {
     }
 
 
-    void operator()(RuntimeIO * io) {
+    void operator()(Pipeline::Program::RuntimeIO * io_) {
+        io = io_;
 
         // initial setup()
-        if (GetCurrentIteration() == 0) {
+        if (io->GetCurrentIteration() == 0) {
             NewRun(io->SizeOf(DataType::UserVertex));    
         }
         
@@ -172,8 +173,8 @@ class RasterizeTriangles : public StageProcedure {
         srcV1 = new uint8_t[io->Sizeof(DataType::UserVertex)];
         srcV2 = new uint8_t[io->Sizeof(DataType::UserVertex)];   
 
-        framebufferW = GetTexture()->GetW();
-        framebufferH = GetTexture()->GetH();
+        framebufferW = io->GetFramebuffer()->GetW();
+        framebufferH = io->GetFramebuffer()->GetH();
     }
 
     inline void PushVertex(uint8_t * data) const {
@@ -267,6 +268,6 @@ class RasterizeTriangles : public StageProcedure {
 
 
     std::vector<FragmentInfo> fragments;
-
+    Pipeline::Program::RuntimeIO * io;
     uint8_t count;
 };

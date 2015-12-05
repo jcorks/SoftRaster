@@ -112,25 +112,27 @@ Pipeline::Program::RuntimeIO::RuntimeIO {
 void Pipeline::Program::RuntimeIO::RunSetup(
     uint8_t * vData,
     uint32_t szVertex,
-    uint32_t numIteration
+    uint32_t numIteration,
+    Texture * framebuffer;
 ) {
     sizeofVertex = szVertex;
     commitCount = 0;
 
     PrepareOutputCache(sxVertex*numIteraton);
     memcpy(outputCache, vData, sxVertex*numIteraton);
+    fb = framebuffer;
 }
 
 
 void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
-    iterIn = 0;
-    iterOut = 0;
+    iterSlotIn = 0;
+    iterSlotOut = 0;
 
 
     // since we are dealing with a new proc,
     // we need to correct our io signatures
-    argSizeIn.clear();
-    argSizeOut.clear();
+    argInLocs.clear();
+    argOutLocs.clear();
 
     auto input  = p->InputSignature();
     auto output = p->OutputSignature();
@@ -139,12 +141,29 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
     outputSize = SignatureSize(p->OutputSignature());
 
     auto iStack = input.Get();
+    
     while(!iStack.empty()) {
-        argSizeIn.push_back(SizeOf(iStack.top())); iStack.pop();
+        argSizeIn.push_back(
+            (argSizeIn.empty() ? 
+                0
+            :                   
+                argSizeIn[argSizeIn.size() - 1]
+            )
+            + SizeOf(iStack.top())
+        ); 
+        iStack.pop();
     }
     auto oStack = output.Get();
     while(!oStack.empty()) {
-        argSizeOut.push_back(SizeOf(oStack.top())); oStack.pop();
+        argSizeOut.push_back(SizeOf(oStack.top())
+            (argSizeOut.empty() ? 
+                0
+            :                   
+                argSizeIn[argSizeOut.size() - 1]
+            )
+
+        ); 
+        oStack.pop();
     }
 
 
@@ -157,6 +176,8 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
 
     PrepareInputCache(procIterCount * (inputSize));
     PrepareOutputCache(procIterCount * (inputSize));
+
+    // Our output from the last run is always our input to the next run.
     inputCache.swap(outputCache);
 }
 
@@ -187,7 +208,22 @@ void Pipeline::Program::RuntimeIO::Commit() {
     PrepareOutputCache((commitCount+1)*outputSize);
 }
 
-
+uint32_t Pipeline::Program::RuntimeIO::SizeOf(DataType type) {
+    switch(type) {
+        case DataType::Null:    return 0;
+        case DataType::Float:   return sizeof(float);
+        case DataType::Int:     return sizeof(int);     
+        case DataType::Vertex2: return sizeof(Vertex2); 
+        case DataType::Vertex3: return sizeof(Vertex3); 
+        case DataType::Vertex4: return sizeof(Vertex4); 
+        case DataType::Mat4:    return sizeof(Mat4); 
+        case DataType::UserVertex:
+            return sizeofVertex;
+        default: assert(!"Could not determine size of variable..");
+        break;
+    }
+    return 0;
+}
 
 
 
@@ -210,7 +246,7 @@ uint32_t SignatureSize(const SignatureID & sig, uint32_t sizeofVertex) {
             case DataType::Mat4:    size += sizeof(Mat4);    break;
             case DataType::UserVertex:
                 size += sizeofVertex;
-            default: assert("Could not determine size of variable..");
+            default: assert(!"Could not determine size of variable..");
             break;
         }
     }
