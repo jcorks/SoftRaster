@@ -1,18 +1,19 @@
-#include <SoftRaster/Texture>
+#include <SoftRaster/Texture.h>
+#include <algorithm>
 
 using namespace SoftRaster;
 
-static uint8_t * ColorAdd_None    (uint8_t *, uint8_t *);
-static uint8_t * ColorAdd_Alpha   (uint8_t *, uint8_t *);
-static uint8_t * ColorAdd_Additive(uint8_t *, uint8_t *);
+static uint8_t * ColorAdd_None    (const uint8_t *, const uint8_t *);
+static uint8_t * ColorAdd_Alpha   (const uint8_t *, const uint8_t *);
+static uint8_t * ColorAdd_Additive(const uint8_t *, const uint8_t *);
 
 
 
-static uint8_t * SampleRule_Basic(int, int, Texture *);
-static uint8_t * SampleRule_LI(int, int, Texture *);
+static uint8_t * SampleRule_Basic(uint16_t, uint16_t, Texture *);
+static uint8_t * SampleRule_LI(uint16_t, uint16_t, Texture *);
 
 
-struct Color32 {uint8_t r, uint8_t g, uint8_t b, uint8_t a};
+struct Color32 {uint8_t r; uint8_t g; uint8_t b; uint8_t a;};
 
 
 Texture::Texture(uint16_t w_, uint16_t h_, uint8_t * data_) {
@@ -59,7 +60,7 @@ void Texture::ResizeFast(uint16_t newWidth, uint16_t newHeight) {
 }
 
 
-Texture * Texture::operator=(const Texture & t) {
+Texture & Texture::operator=(const Texture & t) {
     delete[] data;
     w = t.w;
     h = t.h;
@@ -67,16 +68,16 @@ Texture * Texture::operator=(const Texture & t) {
     sarule = t.sarule;
     data = new uint8_t[w*h*4];
     memcpy(data, t.data, w*h*4);
-    
-}
+    return *this;
+}   
 
 
 
-void Texture::SetColorRules(ColorAddRule ca, ColorOverflowRule co) {
+void Texture::SetColorRules(ColorAddRule ca) {
     switch(ca) {
       case ColorAddRule::None:      carule = ColorAdd_None;    break;
       case ColorAddRule::Alpha:     carule = ColorAdd_Alpha;   break;
-      case ColorAddRule::Additive:  carule = ColorAdd_Addtive; break;
+      case ColorAddRule::Additive:  carule = ColorAdd_Additive;break;
     }
 }
 
@@ -90,17 +91,17 @@ void Texture::SetSampleRule(SampleRule s) {
 
 
 
-void Texture::PutPixel(uint16_t x, uint16_t y, uint8_t * src) {
+void Texture::PutPixel(uint16_t x, uint16_t y, const uint8_t * src) {
     memcpy(data+4*(x+y*w), carule(src, data+4*(x+y*w)), 4);
 }
 
-void Texture::PutPixel(uint16_t x, uint16_t y, Color * srcC) {
+void Texture::PutPixel(uint16_t x, uint16_t y, const Color * srcC) {
     static Color32 src;
     src.r = srcC->r*UINT8_MAX;
     src.g = srcC->g*UINT8_MAX;
     src.b = srcC->b*UINT8_MAX;
     src.a = srcC->a*UINT8_MAX;
-    memcpy(data+4*(x+y*w), carule(&src, data+4*(x+y*w)), 4);
+    memcpy(data+4*(x+y*w), carule((uint8_t*)&src, data+4*(x+y*w)), 4);
 }
 
 void Texture::GetPixel(uint16_t x, uint16_t y, uint8_t * src) {
@@ -108,10 +109,10 @@ void Texture::GetPixel(uint16_t x, uint16_t y, uint8_t * src) {
 }
 
 void Texture::GetPixel(uint16_t x, uint16_t y, Color * src) {
-    src.r = (*(data+4*(x+y*w+0)))/(float)UINT8_MAX;
-    src.g = (*(data+4*(x+y*w+1)))/(float)UINT8_MAX;
-    src.b = (*(data+4*(x+y*w+2)))/(float)UINT8_MAX;
-    src.a = (*(data+4*(x+y*w+3)))/(float)UINT8_MAX;
+    src->r = (*(data+4*(x+y*w+0)))/(float)UINT8_MAX;
+    src->g = (*(data+4*(x+y*w+1)))/(float)UINT8_MAX;
+    src->b = (*(data+4*(x+y*w+2)))/(float)UINT8_MAX;
+    src->a = (*(data+4*(x+y*w+3)))/(float)UINT8_MAX;
 }
 
 
@@ -144,10 +145,10 @@ void Texture::SamplePixel(float x, float y, Color * src) {
 void Texture::PutTexture(uint16_t x_, uint16_t y_, uint16_t maxX, uint16_t maxY, Texture * t) {
     uint16_t srcX = 0;
     uint16_t srcY = 0;
-    for(uint16_t y = _y; y < maxY && srcY < t->h; ++y, ++srcY) {
-        for(uint16_t x = _x; x < maxX && srcX < t->w; ++x, ++srcX) {
+    for(uint16_t y = y_; y < maxY && srcY < t->h; ++y, ++srcY) {
+        for(uint16_t x = x_; x < maxX && srcX < t->w; ++x, ++srcX) {
             if (x < 0 || x >= w ||
-                y < 0 || y >= h ||
+                y < 0 || y >= h
                 ) continue;
 
             PutPixel(x, y, t->GetData()+4*(srcX + srcY*t->w));
@@ -155,7 +156,7 @@ void Texture::PutTexture(uint16_t x_, uint16_t y_, uint16_t maxX, uint16_t maxY,
     }
 }
 
-void GetAsFormat(Format fmt, uint8_t * out) {
+void Texture::GetAsFormat(Format fmt, uint8_t * out) {
     if (fmt == Format::RGB) {
         for(uint16_t y = 0; y < h; ++y) {
             for(uint16_t x = 0; x < w; ++x) {
@@ -187,7 +188,10 @@ void GetAsFormat(Format fmt, uint8_t * out) {
 }
 
 
-
+void Texture::Clear(uint8_t * src) {
+    uint32_t clr = *((uint32_t*)src);
+    memset(data, clr, w*h*4);
+}
 
 
 
@@ -195,52 +199,52 @@ void GetAsFormat(Format fmt, uint8_t * out) {
 
 
 //////////// statics
-uint8_t * ColorAdd_None(uint8_t * src, uint8_t * dest) {
+uint8_t * ColorAdd_None(const uint8_t * src, const uint8_t * dest) {
     static Color32 out;
-    out = *((Color32)src);
-    return &out;
+    out = *((Color32*)src);
+    return (uint8_t *)&out;
 }
 
 
-uint8_t * ColorAdd_Alpha(uint8_t * src, uint8_t * dest) {
+uint8_t * ColorAdd_Alpha(const uint8_t * src, const uint8_t * dest) {
     static Color32 out;
     static float alpha = (src[3] / (float)UINT8_MAX);
     out.r = dest[0] + src[0]*alpha;
     out.g = dest[1] + src[1]*alpha;
     out.b = dest[2] + src[2]*alpha;
     out.a = dest[3] + src[3]*alpha;
-    return &out;
+    return (uint8_t *)&out;
 }
 
-uint8_t * ColorAdd_Additive(uint8_t * src, uint8_t * dest) {
+uint8_t * ColorAdd_Additive(const uint8_t * src, const uint8_t * dest) {
     static Color32 out;
     out.r = src[0] + dest[0];
     out.g = src[1] + dest[1];
     out.b = src[2] + dest[2];
     out.a = src[3] + dest[3];    
-    return &out;
+    return (uint8_t *)&out;
 }
 
 
 
 uint8_t * SampleRule_Basic(uint16_t x, uint16_t y, Texture * t) {
     static Color32 out;
-    out.r = t->GetData() + (x+(y*w->Width()))*4;
-    out.g = t->GetData() + (x+(y*w->Width())+1)*4;
-    out.b = t->GetData() + (x+(y*w->Width())+2)*4;
-    out.a = t->GetData() + (x+(y*w->Width())+3)*4;
-    return &out;
+    out.r = *(t->GetData() + (x+(y*t->Width()))*4);
+    out.g = *(t->GetData() + (x+(y*t->Width())+1)*4);
+    out.b = *(t->GetData() + (x+(y*t->Width())+2)*4);
+    out.a = *(t->GetData() + (x+(y*t->Width())+3)*4);
+    return (uint8_t *)&out;
 }
 
 
 //TODO
 uint8_t * SampleRule_LI(uint16_t x, uint16_t y, Texture * t) {
     static Color32 out;
-    out.r = t->GetData() + (x+(y*w->Width()))*4;
-    out.g = t->GetData() + (x+(y*w->Width())+1)*4;
-    out.b = t->GetData() + (x+(y*w->Width())+2)*4;
-    out.a = t->GetData() + (x+(y*w->Width())+3)*4;
-    return &out;
+    out.r = *(t->GetData() + (x+(y*t->Width()))*4);
+    out.g = *(t->GetData() + (x+(y*t->Width())+1)*4);
+    out.b = *(t->GetData() + (x+(y*t->Width())+2)*4);
+    out.a = *(t->GetData() + (x+(y*t->Width())+3)*4);
+    return (uint8_t *)&out;
 }
 
 

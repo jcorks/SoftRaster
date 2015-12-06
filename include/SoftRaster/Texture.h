@@ -3,10 +3,11 @@
 
 #include <cstring>
 #include <cstdint>
+#include <SoftRaster/Primitives.h>
 
 namespace SoftRaster {
 
-/// \brief A 32-bit image.
+/// \brief A 32-bit image
 ///
 /// All pixel positions are relative to the top left of
 /// the image and begin at 0. Any raw pixel access will
@@ -17,7 +18,7 @@ class Texture {
     
 
 
-    /// \brief Denotes a rule to be followed the interaction between source and destination pixels
+    /// \brief Denotes a rule to be followed by the interaction between source and destination pixels
     ///
     enum class ColorAddRule {
         None,    ///< Source overwrites destination.
@@ -40,7 +41,6 @@ class Texture {
         BlendedRGB,///< Same as RGB, but the alpha saturation of each pixel is multiplied to the other color channels. GetAsFormat() expects the input buffer to be Width()*Height()*3
         Grayscale, ///< Each pixel is the average of all the cahnnels saturation. Only one byte of information is written for each pixel. GetAsFormat() expect the input buffer to be Width()*Height() bytes.
     };
-
 
 
     /// \brief Allocates space for the Texture and initializes with the data given, if any.
@@ -104,16 +104,16 @@ class Texture {
     ///
     /// Bounds checking should be handled by the caller.
     ///\{
-    void GetPixel  (uint16_t x, uint16_t y, const uint8_t * pixel);
-    void GetPixel  (uint16_t x, uint16_t y, const Color * pixel);
+    void GetPixel  (uint16_t x, uint16_t y, uint8_t * pixel);
+    void GetPixel  (uint16_t x, uint16_t y, Color * pixel);
     ///\}
     
     /// \brief Equivalent to GetPixel() but the position is a normalized amount from 0.f to 1.f. 
     ///
     /// The sampling positions are clamped.
     ///\{
-    void SamplePixel(float x, float y, const uint8_t * pixel);
-    void SamplePixel(float x, float y, const Color * pixel);
+    void SamplePixel(float x, float y, uint8_t * pixel);
+    void SamplePixel(float x, float y, Color * pixel);
     ///\}
 
     /// \brief Writes a texture to this texture.
@@ -127,13 +127,18 @@ class Texture {
     /// \brief Returns the current stored image in different formats. See Format for details.
     ///
     void GetAsFormat(Format, uint8_t *);
+
+    /// \brief Sets the entire Texture to have the given color.
+    ///
+    /// Any coloring rules are ignored for this operation.
+    void Clear(uint8_t * color);
   private:
 
     uint16_t w, h;
     uint8_t * data;
 
-    (uint8_t *)(*ColorTransform)(uint8_t*src,uint8_t*dest);
-    (uint8_t *)(*SampleTransform)(uint16_t, uint16_t, Texture*);
+    typedef uint8_t *(*ColorTransform)(const uint8_t * src, const uint8_t * dest);
+    typedef uint8_t *(*SampleTransform)(uint16_t, uint16_t, Texture*);
 
     ColorTransform       carule;
     SampleTransform      sarule;

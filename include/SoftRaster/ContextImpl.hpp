@@ -8,6 +8,12 @@ template<typename T>
 Context<T>::Context(Texture * dfb) 
         : sizeofVertex (0),
           program      (nullptr){
+    // kind of a crude test. Would prefer some sort of preprocessor based check somehow
+    T * testInst = new T;
+    if (!dynamic_cast<Vertex3 *>(testInst)) {
+        assert(!"The SoftRaster::Context template vertex type must inherit from the primitive SoftRaster::Vertex3!");
+    }
+    delete testIst;
     SetFramebuffer(t);
 }
 

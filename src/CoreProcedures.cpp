@@ -1,5 +1,5 @@
 #include <SoftRaster/CoreProcedures.h>
-
+#include <algorithm>
 using namespace SoftRaster;
 
 
@@ -7,22 +7,22 @@ using namespace SoftRaster;
 // converts from cartesian coords to barycentric coords
 class BarycentricTransform {
   public:
-    BarycentricTransform(Vertex3 * v0, Vertex3 * v1, Vertex3 * v2, int w, int h) {
-        cartV0x = w * (v0.x+1)/2.f;
-        cartV0y = w * (v0.y+1)/2.f;
+    BarycentricTransform(Vector3 * v0, Vector3 * v1, Vector3 * v2, int w, int h) {
+        cartV0x = w * (v0->x+1)/2.f;
+        cartV0y = w * (v0->y+1)/2.f;
 
-        cartV1x = w * (v1.x+1)/2.f;
-        cartV1y = w * (v1.y+1)/2.f;
+        cartV1x = w * (v1->x+1)/2.f;
+        cartV1y = w * (v1->y+1)/2.f;
 
-        cartV2x = w * (v2.x+1)/2.f;
-        cartV2y = w * (v2.y+1)/2.f;
+        cartV2x = w * (v2->x+1)/2.f;
+        cartV2y = w * (v2->y+1)/2.f;
 
         float baryTrans[4];
 
-        baryTrans[0] = (cartV0x - cartV2x);
+        baryTrans[0] = (cartV0x - cartV1x);
         baryTrans[1] = (cartV1x - cartV2x);
-        baryTrans[2] = (cartV0y - cartV2y);
-        baryTrans[3] = (cartV1y - cartV3y);
+        baryTrans[2] = (cartV0y - cartV1y);
+        baryTrans[3] = (cartV1y - cartV2y);
 
         // calc inverse
 
@@ -38,12 +38,12 @@ class BarycentricTransform {
     // converts xy into "biases" woards each vertex
     void Transform(int x, int y, float * b0, float * b1, float * b2) {
         static float inVec[2];
-        inVec[0] = x - cartV2.x;
-        inVec[1] = y - cartV2.y;
+        inVec[0] = x - cartV2x;
+        inVec[1] = y - cartV2y;
 
         *b0 = inverseBar[0]*inVec[0] + inverseBar[1]*inVec[1];
         *b1 = inverseBar[2]*inVec[0] + inverseBar[3]*inVec[1];
-        *b3 = 1 - *b0 - *b1;
+        *b2 = 1 - *b0 - *b1;
     }
 
   private:
@@ -120,12 +120,12 @@ class RasterizeTriangles : public StageProcedure {
 
         // initial setup()
         if (io->GetCurrentIteration() == 0) {
-            NewRun(io->SizeOf(DataType::UserVertex));    
+            NewRun();    
         }
         
 
         if (count != 2) {
-            PushVertex(io->ReadNext());
+            PushVertex(io->ReadNext<Vector3>());
         } else {
             if (!PassesClipTest()) return;
         
@@ -137,16 +137,16 @@ class RasterizeTriangles : public StageProcedure {
             FragmentInfo * out;
             for(int i = 0; i < fragments.size(); ++i) { 
                 out = &fragment[i];
-                io->WriteNext(&out->x);
-                io->WriteNext(&out->x);
+                io->WriteNext<int>(&out->x);
+                io->WriteNext<int>(&out->x);
 
-                io->WriteNext(&out->bias0);
-                io->WriteNext(&out->bias1);
-                io->WriteNext(&out->bias2);
+                io->WriteNext<float>(&out->bias0);
+                io->WriteNext<float>(&out->bias1);
+                io->WriteNext<float>(&out->bias2);
             
-                io->WriteNext(srcV0);
-                io->WriteNext(srcV1);
-                io->WriteNext(srcV2);
+                io->WriteNext<uint8_t>(srcV0);
+                io->WriteNext<uint8_t>(srcV1);
+                io->WriteNext<uint8_t>(srcV2);
     
                 io->Commit();
             }
@@ -188,7 +188,7 @@ class RasterizeTriangles : public StageProcedure {
     void PopulateFragments() {
         fragments.clear();
 
-        static Vertex3 v0, v1, v2;
+        static Vector3 v0, v1, v2;
         static FragmentInfo frag;
         int boundXmin, boundXmax,
             boundYmin, boundYmax;
@@ -196,9 +196,9 @@ class RasterizeTriangles : public StageProcedure {
 
 
 
-        v0 = *((Vertex3*)srcV0);
-        v1 = *((Vertex3*)srcV1);
-        v2 = *((Vertex3*)srcV2);
+        v0 = *((Vector3*)srcV0);
+        v1 = *((Vector3*)srcV1);
+        v2 = *((Vector3*)srcV2);
 
         // prepares the barycentric transfrom
         // used to test whether or not points are within the triangle

@@ -32,7 +32,7 @@ class Context {
     void SetFramebuffer   (Texture *);
 
     /// \brief Sets the program to render with.
-    /// See Pipeline
+    /// See Pipeline and Pipeline::Program
     ///
     void UseProgram(Pipeline::Program * program);
 
@@ -54,7 +54,7 @@ class Context {
     Pipeline::Program * program;    
 
 };
-#include <SoftRaster/ContextImpl.h>
+#include <SoftRaster/ContextImpl.hpp>
 }
 
 

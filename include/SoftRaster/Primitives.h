@@ -7,9 +7,9 @@ enum class DataType {
     Null,
     Float,
     Int,
-    Vertex2,
-    Vertex3,
-    Vertex4,
+    Vector2,
+    Vector3,
+    Vector4,
     Mat4,
     UserVertex
 };
@@ -36,13 +36,19 @@ struct Vector4 {
 
 
 struct Mat4 {
-    float x0; float x1 float x2; float x3;
-    float y0; float y1 float y2; float y3;
-    float z0; float z1 float z2; float z3;
-    float w0; float w1 float w2; float w3;
+    float x0; float x1; float x2; float x3;
+    float y0; float y1; float y2; float y3;
+    float z0; float z1; float z2; float z3;
+    float w0; float w1; float w2; float w3;
 };
 
 
+struct Color {
+    float r;
+    float g;
+    float b;
+    float a;
+};
 
-
+}
 #endif

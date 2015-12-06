@@ -1,31 +1,34 @@
 #include <SoftRaster/Pipeline.h>
+#include <SoftRaster/StageProcedure.h>
+#include <SoftRaster/Primitives.h>
+#include <cassert>
 
 using namespace SoftRaster;
 
-const char * p_error_c__begin_signature_mismatch = "ERROR: The first ShaderProcedure must accept just one UserVertex as its input.";
-const char * p_error_c__end_signature_mismatch   = "ERROR: The last ShaderProcedure must not return anything";
-const char * p_error_c__io_mismatch              = "ERROR: The current end of the pipeline's return signature does not match the incoming ShaderProcedure's input signature."
+const char * p_error_c__begin_signature_mismatch = "ERROR: The first StageProcedure must accept just one UserVertex as its input.";
+const char * p_error_c__end_signature_mismatch   = "ERROR: The last StageProcedure must not return anything";
+const char * p_error_c__io_mismatch              = "ERROR: The current end of the pipeline's return signature does not match the incoming StageProcedure's input signature.";
 
 const uint32_t pipeline_program_init_cache_size     = 1024 * 512; // 512 KB should be fine to start
 const float    pipeline_program_cache_resize_factor = 1.1f;
 
-static uint32_t SignatureSize(const SignatureIO &, uint32_t sizeofVertex);
+static uint32_t SignatureSize(const StageProcedure::SignatureIO &, uint32_t sizeofVertex);
 
-std::string Pipeline::PushExecutionStage(ShaderProcedure * proc) {
+std::string Pipeline::PushExecutionStage(StageProcedure * proc) {
     const StageProcedure::SignatureIO pipelineHead (
-        DataType::UserVertex;
+        {DataType::UserVertex}
     );
     if (procs.empty()) {
         // the first stage only accepts a user vertex
-        if (porc->InputSignature() != pipelineHead) {
+        if (!(proc->InputSignature() == pipelineHead)) {
             return p_error_c__begin_signature_mismatch;
         }
     } else {
 
         // check that io connects properly.
         // (would be better if it was completely type aware, but...)
-        if (procs[procs.size()-1]->OutputSignature() !=
-                             proc->InputSignature()) {
+        if (!(procs[procs.size()-1]->OutputSignature() ==
+                                proc->InputSignature())) {
             return p_error_c__io_mismatch;
         }   
     }
@@ -38,7 +41,7 @@ std::string Pipeline::PushExecutionStage(ShaderProcedure * proc) {
 
 Pipeline::Program * Pipeline::Compile() {
     if (!procs.size()) return nullptr;
-    if (procs[procs.size()-1]->OutputSignature != StageProcedure::SignatureIO()) {
+    if (!(procs[procs.size()-1]->OutputSignature() == StageProcedure::SignatureIO())) {
         return nullptr;
     }
     Program * out = new Program("");
@@ -83,14 +86,14 @@ void Pipeline::Program::Run(
 
 
 
-    runtimeIO.RunSetup(v, sizeofVertex, num);
+    runtimeIO.RunSetup(v, sizeofVertex, num, framebuffer);
 
     for(uint32_t i = 1; i < cachedProcs.size(); ++i) {
         runtimeIO.NextProc(cachedProcs[i]);
 
 
         for(uint32_t n = 0; n < num; ++n) {
-            cachedProcs[i](&runtimeIO);
+            (*cachedProcs[i])(&runtimeIO);
             runtimeIO.NextIter();
         }
 
@@ -101,7 +104,7 @@ void Pipeline::Program::Run(
 
 
 /////// RuntimeIO
-Pipeline::Program::RuntimeIO::RuntimeIO {
+Pipeline::Program::RuntimeIO::RuntimeIO() {
     inputCacheSize = pipeline_program_init_cache_size;
     outputCacheSize = pipeline_program_init_cache_size;
     inputCache = new uint8_t[inputCacheSize];
@@ -112,14 +115,14 @@ Pipeline::Program::RuntimeIO::RuntimeIO {
 void Pipeline::Program::RuntimeIO::RunSetup(
     uint8_t * vData,
     uint32_t szVertex,
-    uint32_t numIteration,
-    Texture * framebuffer;
+    uint32_t numIterations,
+    Texture * framebuffer
 ) {
     sizeofVertex = szVertex;
     commitCount = 0;
 
-    PrepareOutputCache(sxVertex*numIteraton);
-    memcpy(outputCache, vData, sxVertex*numIteraton);
+    PrepareOutputCache(szVertex*numIterations);
+    memcpy(outputCache, vData, szVertex*numIterations);
     fb = framebuffer;
 }
 
@@ -127,6 +130,7 @@ void Pipeline::Program::RuntimeIO::RunSetup(
 void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
     iterSlotIn = 0;
     iterSlotOut = 0;
+    
 
 
     // since we are dealing with a new proc,
@@ -137,17 +141,17 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
     auto input  = p->InputSignature();
     auto output = p->OutputSignature();
    
-    inputSize  = SignatureSize(p->InputSignature());
-    outputSize = SignatureSize(p->OutputSignature());
+    inputSize  = SignatureSize(p->InputSignature(), sizeofVertex);
+    outputSize = SignatureSize(p->OutputSignature(), sizeofVertex);
 
     auto iStack = input.Get();
     
     while(!iStack.empty()) {
-        argSizeIn.push_back(
-            (argSizeIn.empty() ? 
+        argInLocs.push_back(
+            (argInLocs.empty() ? 
                 0
             :                   
-                argSizeIn[argSizeIn.size() - 1]
+                argInLocs[argInLocs.size() - 1]
             )
             + SizeOf(iStack.top())
         ); 
@@ -155,13 +159,13 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
     }
     auto oStack = output.Get();
     while(!oStack.empty()) {
-        argSizeOut.push_back(SizeOf(oStack.top())
-            (argSizeOut.empty() ? 
+        argOutLocs.push_back(
+            (argOutLocs.empty() ? 
                 0
             :                   
-                argSizeIn[argSizeOut.size() - 1]
+                argOutLocs[argOutLocs.size() - 1]
             )
-
+            + SizeOf(oStack.top())
         ); 
         oStack.pop();
     }
@@ -178,34 +182,38 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
     PrepareOutputCache(procIterCount * (inputSize));
 
     // Our output from the last run is always our input to the next run.
-    inputCache.swap(outputCache);
+    std::swap(outputCache, inputCache);
+    inputCacheIter = inputCache;
+    outputCacheIter = outputCache;
 }
 
 
 
 void Pipeline::Program::RuntimeIO::NextIter() {
     currentProcIter++;
-    // want to reset the read iter in acse user didnt
+    // want to reset the read iter in case user didnt
     // actually read in some args
-    iterIn  = currentProcIter*inputSize;
+    inputCacheIter += inputSize;
+    
 }
 
 
 void Pipeline::Program::RuntimeIO::PrepareInputCache(uint32_t b) {
     if (b < inputCacheSize) return;
     inputCacheSize*=pipeline_program_cache_resize_factor;
-    inputCache = realloc(inputCache, inputCacheSize);
+    inputCache = (uint8_t*)realloc(inputCache, inputCacheSize);
 }
 
 void Pipeline::Program::RuntimeIO::PrepareOutputCache(uint32_t b) {
     if (b < outputCacheSize) return;
     outputCacheSize*=pipeline_program_cache_resize_factor;
-    outpuCache = realloc(outputCache, outputCacheSize);
+    outputCache = (uint8_t*)realloc(outputCache, outputCacheSize);
 }
 
 void Pipeline::Program::RuntimeIO::Commit() {
     commitCount++;
     PrepareOutputCache((commitCount+1)*outputSize);
+    outputCacheIter += outputSize;
 }
 
 uint32_t Pipeline::Program::RuntimeIO::SizeOf(DataType type) {
@@ -213,9 +221,9 @@ uint32_t Pipeline::Program::RuntimeIO::SizeOf(DataType type) {
         case DataType::Null:    return 0;
         case DataType::Float:   return sizeof(float);
         case DataType::Int:     return sizeof(int);     
-        case DataType::Vertex2: return sizeof(Vertex2); 
-        case DataType::Vertex3: return sizeof(Vertex3); 
-        case DataType::Vertex4: return sizeof(Vertex4); 
+        case DataType::Vector2: return sizeof(Vector2); 
+        case DataType::Vector3: return sizeof(Vector3); 
+        case DataType::Vector4: return sizeof(Vector4); 
         case DataType::Mat4:    return sizeof(Mat4); 
         case DataType::UserVertex:
             return sizeofVertex;
@@ -231,18 +239,18 @@ uint32_t Pipeline::Program::RuntimeIO::SizeOf(DataType type) {
 
 
 ///// Statics//////
-uint32_t SignatureSize(const SignatureID & sig, uint32_t sizeofVertex) {
+uint32_t SignatureSize(const StageProcedure::SignatureIO & sig, uint32_t sizeofVertex) {
 
     std::stack<DataType> stk = sig.Get();
     uint32_t size = 0;
-    while(!std.empty()) {
+    while(!stk.empty()) {
         switch(stk.top()) {
             case DataType::Null: break; 
             case DataType::Float:   size += sizeof(float);   break;
             case DataType::Int:     size += sizeof(int);     break;
-            case DataType::Vertex2: size += sizeof(Vertex2); break;
-            case DataType::Vertex3: size += sizeof(Vertex3); break;
-            case DataType::Vertex4: size += sizeof(Vertex4); break;
+            case DataType::Vector2: size += sizeof(Vector2); break;
+            case DataType::Vector3: size += sizeof(Vector3); break;
+            case DataType::Vector4: size += sizeof(Vector4); break;
             case DataType::Mat4:    size += sizeof(Mat4);    break;
             case DataType::UserVertex:
                 size += sizeofVertex;

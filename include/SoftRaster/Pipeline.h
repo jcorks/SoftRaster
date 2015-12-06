@@ -3,10 +3,14 @@
 
 /* SoftRaster: Pipeline
    Johnathan Corkery, 2015 */
+#include <cstdint>
+#include <string>
+#include <vector>
+#include <SoftRaster/Texture.h>
 
 
 namespace SoftRaster {
-
+class StageProcedure;
 /// \brief The Pipeline controls how the rendering process occurs. 
 ///
 /// The pipeline is where the stages of rendering are assembled.
@@ -20,7 +24,8 @@ class Pipeline {
     /// \brief An assembled pipeline that can process vertices.
     ///
     /// In this form, there is no external interface to modify the pipeline
-    /// The program is the unit that actually performs the rendering.
+    /// The program is the unit that actually performs the rendering. 
+    /// Refer to Context for running.
     ///
     class Program {
       public:
@@ -29,22 +34,14 @@ class Pipeline {
         ///
         std::string GetStatus();
 
-        /// \brief Runs the program stages with the given data.
-        /// The first stage will run over all vertices and the last stage
-        /// must write a texture pointer.
-        void Run(
-            Texture * framebuffer, 
-            uint8_t * v, 
-            uint32_t sizeofVertex, 
-            uint32_t num
-        );
-
-
         /// \brief Holds the runtime information for each iteration of the Procedure.
         ///
         /// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
-        /// during the running of the procedure. The IO state is governed by  
-        /// the AttributeBlock's assigned in InputSignature() and OutputSignature(). 
+        /// during the running of the pipeline stages. The IO state is governed by  
+        /// the SignatureIO instances assigned in InputSignature() and OutputSignature(). 
+        ///
+        /// It's important to note that the Read/Write tmeplate typename pramaters are 
+        /// just type hints and dont actually affect how many bytes are read or written.
         ///
         class RuntimeIO {
           public:
@@ -53,24 +50,24 @@ class Pipeline {
             /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
             ///
             template<typename T>
-            T * ReadNext<T>();
+            T * ReadNext();
 
             /// \brief Reads the slot'th variable in the input. This does not affect ReadNext calls.
             ///
             template<typename T>
-            T * ReadSlot<T>(uint32_t slot);
+            T * ReadSlot(uint32_t slot);
 
 
 
             /// \brief Writes the next registered data slot to be passed
             ///
             template<typename T>
-            WriteNext(T *);
+            void WriteNext(const T *);
 
             /// \brief Writes the data to the slot assigned in the InputSignature() call.
             ///
             template<typename T>
-            WriteSlot(uint32_t slot, const T *);
+            void WriteSlot(uint32_t slot, const T *);
 
 
 
@@ -109,7 +106,7 @@ class Pipeline {
             void NextProc(const StageProcedure *);
             void NextIter();
             void PrepareInputCache(uint32_t bytes);
-            void PrepareOutputputCache(uint32_t bytes);
+            void PrepareOutputCache(uint32_t bytes);
             
 
             uint32_t iterSlotIn;    
@@ -127,19 +124,29 @@ class Pipeline {
 
             uint8_t * inputCache;
             uint8_t * outputCache;
+            uint8_t * inputCacheIter;
+            uint8_t * outputCacheIter;
             uint32_t inputCacheSize;
             uint32_t outputCacheSize;
     
             Texture * fb;
-        }
+        };
 
 
         ~Program();
 
       private:
-        friend class Program;
+        friend class Context; // Publicly run by Context only so that certain guarantees may be covered.
+        friend class Pipeline;
+        void Run(
+            Texture * framebuffer, 
+            uint8_t * v, 
+            uint32_t sizeofVertex, 
+            uint32_t num
+        );
+
         Program(const std::string s);
-        std::vector<ShaderProcedure*> cachedProcs;
+        std::vector<StageProcedure*> cachedProcs;
         Texture * src;    
         std::string status;
     };
@@ -150,7 +157,7 @@ class Pipeline {
     /// Returns empty string if no error, else returns a string elaborating on what went wrong
     /// When compiled into a program, the stages are run sequentially, passing
     /// output to the next stage's input.
-    std::string PushExecutionStage (ShaderProcedure *);
+    std::string PushExecutionStage (StageProcedure *);
 
     /// \brief Creates a rendering program.
     ///
@@ -165,10 +172,10 @@ class Pipeline {
     void Clear();
 
   private:
-    std::vector<ShaderProcedure*> procs;
+    std::vector<StageProcedure*> procs;
 
 };
-#include "PipelineImpl.hpp"
+#include <SoftRaster/PipelineImpl.hpp>
 }
 
 

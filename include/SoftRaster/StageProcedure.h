@@ -5,13 +5,16 @@
    Johnathan Corkery, 2015 */
 
 #include <cstring>
+#include <stack>
+#include <vector>
+#include <SoftRaster/Pipeline.h>
 
 namespace SoftRaster {
 
 
 /// \brief A single Pipeline computation unit.
 ///
-/// A StageProcedure is a functor that processes data
+/// A StageProcedure is a functor tha   t processes data
 /// in multiple iterations until its inputs are exhausted.
 /// It's results then because the inputs for the next StageProcedure.
 /// It is functionally modeled after Shader programs and follows 
@@ -30,7 +33,7 @@ class StageProcedure {
     /// \brief Holds a sequence of data types
     ///
     class SignatureIO {
-      public:
+      public:	
         SignatureIO(const std::vector<DataType> &);
         SignatureIO(){};
 
@@ -43,7 +46,8 @@ class StageProcedure {
         bool operator==(const SignatureIO & )const;             
 
         /// \brief Returns a queue of DataTypes with 
-        /// the first argument at the top of the stack;
+        /// the first argument at the top of the stack
+        ///
         std::stack<DataType> Get() const;
 
         /// \brief
@@ -54,19 +58,21 @@ class StageProcedure {
     /// \brief Returns the types and numbers of values that will be 
     /// read during each iteration
     ///
-    virtual SignatureIO InputSignature() = 0;
+    virtual SignatureIO InputSignature() const = 0;
 
     /// \brief Returns the number of bytes that will be written to for each
     /// iteration that writes
     ///
-    virtual SignatureIO OuptutSignature() = 0;
+    virtual SignatureIO OutputSignature() const  = 0;
 
 
     /// \brief Iteration of the procedure.
     ///
-    virtual void operator(Runtime *) = 0;
+    virtual void operator()(Pipeline::Program::RuntimeIO *) = 0;
 
 
 };
 
 }
+
+#endif
