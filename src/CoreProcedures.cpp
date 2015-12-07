@@ -136,7 +136,7 @@ class RasterizeTriangles : public StageProcedure {
             // commit frags
             FragmentInfo * out;
             for(int i = 0; i < fragments.size(); ++i) { 
-                out = &fragment[i];
+                out = &fragments[i];
                 io->WriteNext<int>(&out->x);
                 io->WriteNext<int>(&out->x);
 
@@ -144,9 +144,9 @@ class RasterizeTriangles : public StageProcedure {
                 io->WriteNext<float>(&out->bias1);
                 io->WriteNext<float>(&out->bias2);
             
-                io->WriteNext<uint8_t>(srcV0);
-                io->WriteNext<uint8_t>(srcV1);
-                io->WriteNext<uint8_t>(srcV2);
+                io->WriteNext<uint8_t>(srcV[0]);
+                io->WriteNext<uint8_t>(srcV[1]);
+                io->WriteNext<uint8_t>(srcV[2]);
     
                 io->Commit();
             }
@@ -166,19 +166,19 @@ class RasterizeTriangles : public StageProcedure {
     // sets up the stage for a new set of vertices
     void NewRun() {
         count = 0;
-        if (srcV0) delete[] srcV0;  
-        if (srcV1) delete[] srcV1;  
-        if (srcV2) delete[] srcV2;  
-        srcV0 = new uint8_t[io->Sizeof(DataType::UserVertex)];
-        srcV1 = new uint8_t[io->Sizeof(DataType::UserVertex)];
-        srcV2 = new uint8_t[io->Sizeof(DataType::UserVertex)];   
+        if (srcV[0]) delete[] srcV[0];  
+        if (srcV[1]) delete[] srcV[1];  
+        if (srcV[2]) delete[] srcV[2];  
+        srcV[0] = new uint8_t[io->SizeOf(DataType::UserVertex)];
+        srcV[1] = new uint8_t[io->SizeOf(DataType::UserVertex)];
+        srcV[2] = new uint8_t[io->SizeOf(DataType::UserVertex)];   
 
-        framebufferW = io->GetFramebuffer()->GetW();
-        framebufferH = io->GetFramebuffer()->GetH();
+        framebufferW = io->GetFramebuffer()->Width();
+        framebufferH = io->GetFramebuffer()->Height();
     }
 
-    inline void PushVertex(uint8_t * data) const {
-        memcpy(vInstance+GetVertexSize()*count, data, GetVertexSize());
+    inline void PushVertex(Vector3 * data) const {
+        memcpy(srcV[count], data, io->SizeOf(DataType::UserVertex));
     };
 
 
@@ -196,24 +196,24 @@ class RasterizeTriangles : public StageProcedure {
 
 
 
-        v0 = *((Vector3*)srcV0);
-        v1 = *((Vector3*)srcV1);
-        v2 = *((Vector3*)srcV2);
+        v0 = *((Vector3*)srcV[0]);
+        v1 = *((Vector3*)srcV[1]);
+        v2 = *((Vector3*)srcV[2]);
 
         // prepares the barycentric transfrom
         // used to test whether or not points are within the triangle
         // and to produce the varying biases. SO USEFUL
-        BarycentricTransform baryTest(&v0, &v1, &v2
-                                      framebufferW, framebufferH              
+        BarycentricTransform baryTest(&v0, &v1, &v2,
+                                      io->GetFramebuffer()->Width(), io->GetFramebuffer()->Height()              
                                       );
         
 
         // first lets decide what texels should even be considered
         // A superset of the texels to test would be the bounding box of the triangle
-        boundXmin = framebufferW * (std::min(std::min(std::min, v0.x), v1.x), v2.x))+1)/2.f;
-        boundYmin = framebufferH * (std::min(std::min(std::min, v0.y), v1.y), v2.y))+1)/2.f;
-        boundXmax = framebufferW * (std::max(std::max(std::max, v0.x), v1.x), v2.x))+1)/2.f;
-        boundYmax = framebufferH * (std::max(std::max(std::max, v0.y), v1.y), v2.y))+1)/2.f;
+        boundXmin = framebufferW * ((std::min(std::min(v0.x, v1.x), v2.x))+1)/2.f;
+        boundYmin = framebufferH * ((std::min(std::min(v0.y, v1.y), v2.y))+1)/2.f;
+        boundXmax = framebufferW * ((std::max(std::max(v0.x, v1.x), v2.x))+1)/2.f;
+        boundYmax = framebufferH * ((std::max(std::max(v0.y, v1.y), v2.y))+1)/2.f;
         
                 
         
@@ -261,9 +261,7 @@ class RasterizeTriangles : public StageProcedure {
     int framebufferW;
     int framebufferH;    
 
-    uint8_t * srcV0;
-    uint8_t * srcV1;
-    uint8_t * srcV2;
+    uint8_t * srcV[3];
 
 
 

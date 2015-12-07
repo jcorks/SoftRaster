@@ -5,13 +5,13 @@
 
 template<typename T>
 T * Pipeline::Program::RuntimeIO::ReadNext() {
-    return static_cast<T*>(inputCacheIter+argInLocs[iterSlotIn++]);
+    return (T*)(inputCacheIter+argInLocs[iterSlotIn++]);
 }
 
 
 template<typename T>
 T * Pipeline::Program::RuntimeIO::ReadSlot(uint32_t slot) {
-    return static_cast<T*>(inputCacheIter+argInLocs[slot]);
+    return (T*)(inputCacheIter+argInLocs[slot]);
 }
 
 

@@ -2,7 +2,7 @@
 
 CC := g++
 
-CFLAGS := -std=c++11 -g
+CFLAGS := -O2 -std=c++11 
 
 
 SRCS :=./src/Pipeline.cpp \
@@ -15,7 +15,7 @@ SRCS :=./src/Pipeline.cpp \
 OBJS := $(patsubst %.cpp,%.o, $(SRCS))
 
 all: $(OBJS) 
-	ar cs ./lib/SoftRaster.o $(OBJS)
+	ar rcs ./lib/SoftRaster.a $(OBJS)
 
 %.o:
 	$(CC) $(CFLAGS) -I./include/ -c $(patsubst %.o,%.cpp,$@)
