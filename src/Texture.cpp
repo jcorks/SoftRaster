@@ -18,6 +18,8 @@ struct Color32 {uint8_t r; uint8_t g; uint8_t b; uint8_t a;};
 
 Texture::Texture(uint16_t w_, uint16_t h_, uint8_t * data_) {
     data = new uint8_t[w_*h_*4];
+    w = w_;
+    h = h_;
     carule = ColorAdd_Alpha;
     sarule = SampleRule_Basic;
 }

@@ -88,7 +88,7 @@ void Pipeline::Program::Run(
 
     runtimeIO.RunSetup(v, sizeofVertex, num, framebuffer);
 
-    for(uint32_t i = 1; i < cachedProcs.size(); ++i) {
+    for(uint32_t i = 0; i < cachedProcs.size(); ++i) {
         runtimeIO.NextProc(cachedProcs[i]);
 
 
@@ -104,7 +104,7 @@ void Pipeline::Program::Run(
 
 
 /////// RuntimeIO
-Pipeline::Program::RuntimeIO::RuntimeIO() {
+RuntimeIO::RuntimeIO() {
     inputCacheSize = pipeline_program_init_cache_size;
     outputCacheSize = pipeline_program_init_cache_size;
     inputCache = new uint8_t[inputCacheSize];
@@ -112,7 +112,7 @@ Pipeline::Program::RuntimeIO::RuntimeIO() {
 }
 
 
-void Pipeline::Program::RuntimeIO::RunSetup(
+void RuntimeIO::RunSetup(
     uint8_t * vData,
     uint32_t szVertex,
     uint32_t numIterations,
@@ -127,7 +127,7 @@ void Pipeline::Program::RuntimeIO::RunSetup(
 }
 
 
-void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
+void RuntimeIO::NextProc(const StageProcedure * p) {
     iterSlotIn = 0;
     iterSlotOut = 0;
     
@@ -189,34 +189,37 @@ void Pipeline::Program::RuntimeIO::NextProc(const StageProcedure * p) {
 
 
 
-void Pipeline::Program::RuntimeIO::NextIter() {
+void RuntimeIO::NextIter() {
     currentProcIter++;
     // want to reset the read iter in case user didnt
     // actually read in some args
     inputCacheIter += inputSize;
+    iterSlotIn = 0;
     
 }
 
 
-void Pipeline::Program::RuntimeIO::PrepareInputCache(uint32_t b) {
+
+void RuntimeIO::PrepareInputCache(uint32_t b) {
     if (b < inputCacheSize) return;
     inputCacheSize*=pipeline_program_cache_resize_factor;
     inputCache = (uint8_t*)realloc(inputCache, inputCacheSize);
 }
 
-void Pipeline::Program::RuntimeIO::PrepareOutputCache(uint32_t b) {
+void RuntimeIO::PrepareOutputCache(uint32_t b) {
     if (b < outputCacheSize) return;
     outputCacheSize*=pipeline_program_cache_resize_factor;
     outputCache = (uint8_t*)realloc(outputCache, outputCacheSize);
 }
 
-void Pipeline::Program::RuntimeIO::Commit() {
+void RuntimeIO::Commit() {
     commitCount++;
     PrepareOutputCache((commitCount+1)*outputSize);
     outputCacheIter += outputSize;
+    iterSlotOut = 0;
 }
 
-uint32_t Pipeline::Program::RuntimeIO::SizeOf(DataType type) {
+uint32_t RuntimeIO::SizeOf(DataType type) {
     switch(type) {
         case DataType::Null:    return 0;
         case DataType::Float:   return sizeof(float);
@@ -253,10 +256,11 @@ uint32_t SignatureSize(const StageProcedure::SignatureIO & sig, uint32_t sizeofV
             case DataType::Vector4: size += sizeof(Vector4); break;
             case DataType::Mat4:    size += sizeof(Mat4);    break;
             case DataType::UserVertex:
-                size += sizeofVertex;
+                size += sizeofVertex; break;
             default: assert(!"Could not determine size of variable..");
             break;
         }
+        stk.pop();
     }
     return size;
 }

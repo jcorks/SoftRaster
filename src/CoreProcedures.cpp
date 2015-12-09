@@ -4,6 +4,9 @@ using namespace SoftRaster;
 
 
 
+
+
+
 // converts from cartesian coords to barycentric coords
 class BarycentricTransform {
   public:
@@ -85,7 +88,7 @@ class BarycentricTransform {
 // Bias allows for varying behavior
 class RasterizeTriangles : public StageProcedure {
   public:
-    SignatureIO InputSignature() {
+    SignatureIO InputSignature() const {
         SignatureIO input;
 
         input.AddSlot(DataType::UserVertex);
@@ -94,7 +97,7 @@ class RasterizeTriangles : public StageProcedure {
     }
 
 
-    SignatureIO OutputSignature() {
+    SignatureIO OutputSignature() const {
         SignatureIO output;
         
         output.AddSlot(DataType::Int);
@@ -115,7 +118,7 @@ class RasterizeTriangles : public StageProcedure {
     }
 
 
-    void operator()(Pipeline::Program::RuntimeIO * io_) {
+    void operator()(RuntimeIO * io_) {
         io = io_;
 
         // initial setup()
@@ -124,9 +127,10 @@ class RasterizeTriangles : public StageProcedure {
         }
         
 
-        if (count != 2) {
-            PushVertex(io->ReadNext<Vector3>());
-        } else {
+        PushVertex();
+        count++;
+
+        if (count >= 3){
             if (!PassesClipTest()) return;
         
             // Populates fragments
@@ -135,21 +139,25 @@ class RasterizeTriangles : public StageProcedure {
     
             // commit frags
             FragmentInfo * out;
+            const int offset = sizeof(int)*2 + sizeof(float)*3;
+            int sizeofVertex = io->SizeOf(DataType::UserVertex);
             for(int i = 0; i < fragments.size(); ++i) { 
                 out = &fragments[i];
+                
                 io->WriteNext<int>(&out->x);
                 io->WriteNext<int>(&out->x);
 
                 io->WriteNext<float>(&out->bias0);
                 io->WriteNext<float>(&out->bias1);
                 io->WriteNext<float>(&out->bias2);
-            
-                io->WriteNext<uint8_t>(srcV[0]);
-                io->WriteNext<uint8_t>(srcV[1]);
-                io->WriteNext<uint8_t>(srcV[2]);
+                
+                memcpy(io->GetWritePointer() +offset,                srcV+0, sizeofVertex);
+                memcpy(io->GetWritePointer() +offset+sizeofVertex,   srcV+1, sizeofVertex);
+                memcpy(io->GetWritePointer() +offset+sizeofVertex*2, srcV+2, sizeofVertex);
     
                 io->Commit();
             }
+            count = 0;
         }
     }
     
@@ -177,8 +185,8 @@ class RasterizeTriangles : public StageProcedure {
         framebufferH = io->GetFramebuffer()->Height();
     }
 
-    inline void PushVertex(Vector3 * data) const {
-        memcpy(srcV[count], data, io->SizeOf(DataType::UserVertex));
+    inline void PushVertex() const {
+        memcpy(srcV[count], io->GetReadPointer(), io->SizeOf(DataType::UserVertex));
     };
 
 
@@ -218,10 +226,9 @@ class RasterizeTriangles : public StageProcedure {
                 
         
         for(int y = boundYmin; y < boundYmax; ++y) {
+            if (y < 0 || y >= framebufferH) continue;   
             for(int x = boundXmin; x < boundXmax; ++x) {
-    
-                if (x < 0 || x >= framebufferW ||
-                    y < 0 || y <= framebufferH) continue;                
+                if (x < 0 || x >= framebufferW) continue;                
 
                 // transforms cartesion coords into barycentric coordinates
                 baryTest.Transform(x, y, 
@@ -230,7 +237,7 @@ class RasterizeTriangles : public StageProcedure {
                     &frag.bias2);
 
                 // TODO: make more precise?
-                if ((frag.bias0 + frag.bias1 + frag.bias2) > 1.001f |
+                if ((frag.bias0 + frag.bias1 + frag.bias2) > 1.001f ||
                     (frag.bias0 + frag.bias1 + frag.bias2) < .99f) continue;
 
                 frag.x = x;
@@ -266,6 +273,17 @@ class RasterizeTriangles : public StageProcedure {
 
 
     std::vector<FragmentInfo> fragments;
-    Pipeline::Program::RuntimeIO * io;
+    RuntimeIO * io;
     uint8_t count;
 };
+
+
+
+
+
+
+
+
+StageProcedure * SoftRaster::CreateRasterizer(Polygon p, DepthBuffering d) {
+    return new RasterizeTriangles();
+}

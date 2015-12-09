@@ -4,46 +4,35 @@
 // its not necessary to use it, but makes life a tad simpler.
 // as a result, it doesn't actually own errr any references..
 // (might be a sign for needed refactoring)
-template<typename T>
-Context<T>::Context(Texture * dfb) 
-        : sizeofVertex (0),
-          program      (nullptr){
-    // kind of a crude test. Would prefer some sort of preprocessor based check somehow
-    T * testInst = new T;
-    if (!dynamic_cast<Vertex3 *>(testInst)) {
-        assert(!"The SoftRaster::Context template vertex type must inherit from the primitive SoftRaster::Vertex3!");
-    }
-    delete testIst;
-    SetFramebuffer(t);
-}
+#include <SoftRaster/Primitives.h>
+#include <cassert>
+
+
 
 
 template<typename T>
-void Context<T>::SetFramebuffer(Texture * t) {
-    texture = t;
-}
-
-template<typename T>
-void Context<T>::UseProgram(Pipeline::Program * p) {
-    program = p;
-}
-
-
-template<typename T>
-void Context<T>::RenderVertices(
+void Context::RenderVertices(
         T * vertexData, 
         uint32_t num) {
-    if (!sizeofVertex || !program) return;
+    if (!program) return;
+    // kind of a crude test. Would prefer some sort of preprocessor based check somehow
+    T * testInst = new T;
+    if (!dynamic_cast<Vector3 *>(testInst)) {
+        assert(!"The SoftRaster::Context template vertex type must inherit from the primitive SoftRaster::Vertex3!");
+    }
+    delete testInst;
+
 
     program->Run(
-        texture, 
-        vertexData,
-        sizeof(T)
+        framebuffer, 
+        (uint8_t*)vertexData,
+        sizeof(T),
+        num
     );         
 }
 
 template<typename T>
-void Context<T>::RenderVerticesIndexed(
+void Context::RenderVerticesIndexed(
         T * vertexArray, 
         uint32_t * indexList, 
         uint32_t numIndices) {
@@ -57,7 +46,7 @@ void Context<T>::RenderVerticesIndexed(
     for(uint32_t i = 0; i < numIndices; ++i) 
         memcpy(coreList+i, vertexArray+indexList[i], sizeof(T));
 
-    RenderVertices(coreList, numIndices);
+    RenderVertices<T>(coreList, numIndices);
 
     delete[] coreList;
 }

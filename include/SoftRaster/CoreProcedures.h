@@ -6,36 +6,13 @@
 namespace SoftRaster {
 
 /// \brief Creates pre-defined ShaderProcedures
-class CoreProcedure {
-
-    enum class ID {
-    };
-
-    enum class Polygon {
-        Triangles,
-        Lines,
-        Points
-    };
-
-    enum class DepthBuffering {
-        On,
-        Off
-    };
+///
+StageProcedure * CreateRasterizer(
+    Polygon shape,
+    DepthBuffering d= DepthBuffering::On
+);
 
 
-
-
-    /// \brief creates a new instance of the specified ShaderProcedure.
-    ///
-    static StageProcedure * Create(ID);
-
-    static StageProcedure * CreateRasterizer(
-        Polygon shape,
-        DepthBuffering d= DepthBuffering::On
-    );
-
-
-};
 
 }
 #endif

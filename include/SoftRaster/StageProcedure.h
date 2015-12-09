@@ -68,7 +68,7 @@ class StageProcedure {
 
     /// \brief Iteration of the procedure.
     ///
-    virtual void operator()(Pipeline::Program::RuntimeIO *) = 0;
+    virtual void operator()(RuntimeIO *) = 0;
 
 
 };

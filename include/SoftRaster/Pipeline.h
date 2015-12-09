@@ -29,117 +29,19 @@ class Pipeline {
     ///
     class Program {
       public:
+        ~Program();
+
+
 
         /// \brief Returns the status string of the Program
         ///
         std::string GetStatus();
 
-        /// \brief Holds the runtime information for each iteration of the Procedure.
-        ///
-        /// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
-        /// during the running of the pipeline stages. The IO state is governed by  
-        /// the SignatureIO instances assigned in InputSignature() and OutputSignature(). 
-        ///
-        /// It's important to note that the Read/Write tmeplate typename pramaters are 
-        /// just type hints and dont actually affect how many bytes are read or written.
-        ///
-        class RuntimeIO {
-          public:
-            RuntimeIO();
-
-            /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
-            ///
-            template<typename T>
-            T * ReadNext();
-
-            /// \brief Reads the slot'th variable in the input. This does not affect ReadNext calls.
-            ///
-            template<typename T>
-            T * ReadSlot(uint32_t slot);
-
-
-
-            /// \brief Writes the next registered data slot to be passed
-            ///
-            template<typename T>
-            void WriteNext(const T *);
-
-            /// \brief Writes the data to the slot assigned in the InputSignature() call.
-            ///
-            template<typename T>
-            void WriteSlot(uint32_t slot, const T *);
-
-
-
-
-            /// \brief Retuns whether the execution unit has reached the last iteration.
-            ///
-            inline bool IsLastIteration()const          { return currentProcIter+1 == procIterCount; }
-
-            /// \brief Returns the current iteration of the procedure.
-            ///
-            inline uint32_t GetCurrentIteration() const { return currentProcIter; }
-
-            /// \brief Returns the total number of iterations that this
-            /// procedure runs this stage.
-            ///
-            inline uint32_t GetIterationCount()const    { return procIterCount;   }
-
-            /// \brief Returns the framebuffer
-            ///
-            inline Texture * GetFramebuffer() { return fb; }
-
-
-
-            /// \brief Commits the written data and marks the end of the output iteration
-            ///
-            void Commit();
-            
-            /// \brief Returns the size of the data type
-            ///
-            uint32_t SizeOf(DataType);
-
-
-          private:
-            friend class Program;
-            void RunSetup(uint8_t * vdata, uint32_t szVertex, uint32_t numIterations, Texture *);
-            void NextProc(const StageProcedure *);
-            void NextIter();
-            void PrepareInputCache(uint32_t bytes);
-            void PrepareOutputCache(uint32_t bytes);
-            
-
-            uint32_t iterSlotIn;    
-            uint32_t iterSlotOut;
-            uint32_t inputSize;
-            uint32_t outputSize;
-
-            uint32_t sizeofVertex;
-            uint32_t currentProcIter;
-            uint32_t procIterCount;
-            uint32_t commitCount;
-
-            std::vector<uint32_t> argInLocs;
-            std::vector<uint32_t> argOutLocs;
-
-            uint8_t * inputCache;
-            uint8_t * outputCache;
-            uint8_t * inputCacheIter;
-            uint8_t * outputCacheIter;
-            uint32_t inputCacheSize;
-            uint32_t outputCacheSize;
-    
-            Texture * fb;
-        };
-
-
-        ~Program();
-
       private:
-        friend class Context; // Publicly run by Context only so that certain guarantees may be covered.
+        friend class Context;
         friend class Pipeline;
         void Run(
-            Texture * framebuffer, 
+            Texture * framebuffer,
             uint8_t * v, 
             uint32_t sizeofVertex, 
             uint32_t num
@@ -175,7 +77,133 @@ class Pipeline {
     std::vector<StageProcedure*> procs;
 
 };
+
+
+
+/// \brief Holds the runtime information for each iteration of the Procedure.
+///
+/// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
+/// during the running of the pipeline stages. The IO state is governed by  
+/// the SignatureIO instances assigned in InputSignature() and OutputSignature(). 
+///
+/// It's important to note that the Read/Write tmeplate typename pramaters are 
+/// just type hints and dont actually affect how many bytes are read or written.
+///
+class RuntimeIO {
+  public:
+    RuntimeIO();
+
+    /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
+    ///
+    template<typename T>
+    void ReadNext(T *);
+
+    /// \brief Reads the slot'th variable in the input. This does not affect ReadNext calls.
+    ///
+    template<typename T>
+    void ReadSlot(uint32_t slot, T *);
+
+    /// \brief Returns the start of the memory block containing the 
+    /// input information for this iteration. 
+    /// 
+    /// ReadStackSize() returns the size of the input memory block in bytes. 
+    ///
+    inline uint8_t * GetReadPointer() { return inputCacheIter; }
+
+    /// \brief returns the number of bytes of the memory block 
+    /// pointed to by ReadStackPointer()
+    ///
+    inline uint32_t GetReadSize() const {return inputSize; }
+
+
+    /// \brief Writes the next registered data slot to be passed
+    ///
+    template<typename T>
+    void WriteNext(const T *);
+
+    /// \brief Writes the data to the slot assigned in the InputSignature() call.
+    ///
+    template<typename T>
+    void WriteSlot(uint32_t slot, const T *);
+
+
+    /// \brief Returns the start of the memory block containing the 
+    /// input information for this iteration. 
+    /// 
+    /// ReadStackSize() returns the size of the input memory block in bytes. 
+    ///
+    inline uint8_t * GetWritePointer() { return outputCacheIter; }
+
+    /// \brief returns the number of bytes of the memory block 
+    /// pointed to by ReadStackPointer()
+    ///
+    inline uint32_t GetWriteSize() const {return inputSize; }
+
+
+
+    /// \brief Retuns whether the execution unit has reached the last iteration.
+    ///
+    inline bool IsLastIteration()const          { return currentProcIter+1 == procIterCount; }
+
+    /// \brief Returns the current iteration of the procedure.
+    ///
+    inline uint32_t GetCurrentIteration() const { return currentProcIter; }
+
+    /// \brief Returns the total number of iterations that this
+    /// procedure runs this stage.
+    ///
+    inline uint32_t GetIterationCount()const    { return procIterCount;   }
+
+    /// \brief Returns the framebuffer
+    ///
+    inline Texture * GetFramebuffer()const { return fb; }
+
+
+
+    /// \brief Commits the written data and marks the end of the output iteration
+    ///
+    void Commit();
+    
+    /// \brief Returns the size of the data type
+    ///
+    uint32_t SizeOf(DataType);
+
+
+  private:
+    friend class Pipeline::Program;
+    void RunSetup(uint8_t * vdata, uint32_t szVertex, uint32_t numIterations, Texture *);
+    void NextProc(const StageProcedure *);
+    void NextIter();
+    void PrepareInputCache(uint32_t bytes);
+    void PrepareOutputCache(uint32_t bytes);
+    
+
+    uint32_t iterSlotIn;    
+    uint32_t iterSlotOut;
+    uint32_t inputSize;
+    uint32_t outputSize;
+
+    uint32_t sizeofVertex;
+    uint32_t currentProcIter;
+    uint32_t procIterCount;
+    uint32_t commitCount;
+
+    std::vector<uint32_t> argInLocs;
+    std::vector<uint32_t> argOutLocs;
+
+    uint8_t * inputCache;
+    uint8_t * outputCache;
+    uint8_t * inputCacheIter;
+    uint8_t * outputCacheIter;
+    uint32_t inputCacheSize;
+    uint32_t outputCacheSize;
+
+    Texture * fb;
+};
+
+
 #include <SoftRaster/PipelineImpl.hpp>
+
 }
 
 

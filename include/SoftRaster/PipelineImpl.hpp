@@ -4,27 +4,26 @@
 
 
 template<typename T>
-T * Pipeline::Program::RuntimeIO::ReadNext() {
-    return (T*)(inputCacheIter+argInLocs[iterSlotIn++]);
+void RuntimeIO::ReadNext(T * data) {
+    memcpy(data, inputCacheIter+argInLocs[iterSlotIn++], sizeof(T));
 }
 
 
 template<typename T>
-T * Pipeline::Program::RuntimeIO::ReadSlot(uint32_t slot) {
-    return (T*)(inputCacheIter+argInLocs[slot]);
+void RuntimeIO::ReadSlot(uint32_t slot, T * data) {
+    memcpy(data, inputCacheIter+argInLocs[slot], sizeof(T));
 }
 
 
 
 template<typename T>
-void Pipeline::Program::RuntimeIO::WriteNext(const T * g) {
+void RuntimeIO::WriteNext(const T * g) {
     memcpy(outputCacheIter+argOutLocs[iterSlotOut++], g, sizeof(T));
 }
 
 
 template<typename T>
-void Pipeline::Program::RuntimeIO::WriteSlot(uint32_t slot, const T * g) {
+void RuntimeIO::WriteSlot(uint32_t slot, const T * g) {
     memcpy(outputCacheIter+argOutLocs[slot], g, sizeof(T));
 }
-
 

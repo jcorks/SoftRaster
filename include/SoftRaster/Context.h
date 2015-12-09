@@ -19,10 +19,6 @@ namespace SoftRaster {
 /// The context does not own the Texture, but needs a reference
 /// to one to perform the draw.
 ///
-/// The template is the class representing the vertices containing
-/// the information to perform the render.
-/// 
-template<typename UserVertexT>
 class Context {
   public:
     Context(Texture * defaultFramebuffer);
@@ -39,11 +35,13 @@ class Context {
     /// \brief Renders the given set of vertices according to the 
     /// Currently set pipeline program to the set framebuffer
     ///
+    template<typename UserVertexT>
     void RenderVertices(UserVertexT * VertexArray, uint32_t num);
 
     /// \brief Renders the given set of indices. The indices
     /// refer to the i'th vertex in the initial vertexArray
     ///
+    template<typename UserVertexT>
     void RenderVerticesIndexed(UserVertexT * VertexArray, uint32_t * indexList, uint32_t numIndices);
 
 

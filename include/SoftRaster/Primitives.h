@@ -3,6 +3,17 @@
 
 namespace SoftRaster {
 
+enum class Polygon {
+    Triangles,
+    Lines,
+    Points
+};
+
+enum class DepthBuffering {
+    On,
+    Off
+};
+
 enum class DataType {
     Null,
     Float,
