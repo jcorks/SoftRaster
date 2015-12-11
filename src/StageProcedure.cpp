@@ -20,8 +20,13 @@ bool StageProcedure::SignatureIO::operator==(const SignatureIO & other) const {
 
 
 std::stack<DataType> StageProcedure::SignatureIO::Get() const {
+    
     std::stack<DataType> out;
-    for(uint32_t i = 0; i < types.size(); ++i) out.push(types[i]);
+    if (!types.size()) return out;    
+    uint32_t i = types.size();
+    while(i) {
+        out.push(types[--i]);
+    }
     return out;
 }
 

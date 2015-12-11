@@ -11,20 +11,22 @@ using namespace SoftRaster;
 class BarycentricTransform {
   public:
     BarycentricTransform(Vector3 * v0, Vector3 * v1, Vector3 * v2, int w, int h) {
+
+        // convert homogenous coords to cartesian equivalents
         cartV0x = w * (v0->x+1)/2.f;
-        cartV0y = w * (v0->y+1)/2.f;
+        cartV0y = h * (v0->y+1)/2.f;
 
         cartV1x = w * (v1->x+1)/2.f;
-        cartV1y = w * (v1->y+1)/2.f;
+        cartV1y = h * (v1->y+1)/2.f;
 
         cartV2x = w * (v2->x+1)/2.f;
-        cartV2y = w * (v2->y+1)/2.f;
+        cartV2y = h * (v2->y+1)/2.f;
 
         float baryTrans[4];
 
-        baryTrans[0] = (cartV0x - cartV1x);
+        baryTrans[0] = (cartV0x - cartV2x);
         baryTrans[1] = (cartV1x - cartV2x);
-        baryTrans[2] = (cartV0y - cartV1y);
+        baryTrans[2] = (cartV0y - cartV2y);
         baryTrans[3] = (cartV1y - cartV2y);
 
         // calc inverse
@@ -32,13 +34,13 @@ class BarycentricTransform {
         float det = 1 / (baryTrans[0]*baryTrans[3] - baryTrans[1]*baryTrans[2]);
         inverseBar[0] =  (baryTrans[3] * det);
         inverseBar[1] = -(baryTrans[1] * det);
-        inverseBar[2] =  (baryTrans[2] * det);
-        inverseBar[3] = -(baryTrans[0] * det);
+        inverseBar[2] = -(baryTrans[2] * det);
+        inverseBar[3] =  (baryTrans[0] * det);
     }
 
 
     
-    // converts xy into "biases" woards each vertex
+    // converts xy into "biases" towards each vertex
     void Transform(int x, int y, float * b0, float * b1, float * b2) {
         static float inVec[2];
         inVec[0] = x - cartV2x;
@@ -145,15 +147,15 @@ class RasterizeTriangles : public StageProcedure {
                 out = &fragments[i];
                 
                 io->WriteNext<int>(&out->x);
-                io->WriteNext<int>(&out->x);
+                io->WriteNext<int>(&out->y);
 
                 io->WriteNext<float>(&out->bias0);
                 io->WriteNext<float>(&out->bias1);
                 io->WriteNext<float>(&out->bias2);
                 
-                memcpy(io->GetWritePointer() +offset,                srcV+0, sizeofVertex);
-                memcpy(io->GetWritePointer() +offset+sizeofVertex,   srcV+1, sizeofVertex);
-                memcpy(io->GetWritePointer() +offset+sizeofVertex*2, srcV+2, sizeofVertex);
+                memcpy(io->GetWritePointer() +offset,                srcV[0], sizeofVertex);
+                memcpy(io->GetWritePointer() +offset+sizeofVertex,   srcV[1], sizeofVertex);
+                memcpy(io->GetWritePointer() +offset+sizeofVertex*2, srcV[2], sizeofVertex);
     
                 io->Commit();
             }
@@ -208,13 +210,14 @@ class RasterizeTriangles : public StageProcedure {
         v1 = *((Vector3*)srcV[1]);
         v2 = *((Vector3*)srcV[2]);
 
+
         // prepares the barycentric transfrom
         // used to test whether or not points are within the triangle
         // and to produce the varying biases. SO USEFUL
         BarycentricTransform baryTest(&v0, &v1, &v2,
                                       io->GetFramebuffer()->Width(), io->GetFramebuffer()->Height()              
                                       );
-        
+
 
         // first lets decide what texels should even be considered
         // A superset of the texels to test would be the bounding box of the triangle
@@ -222,6 +225,8 @@ class RasterizeTriangles : public StageProcedure {
         boundYmin = framebufferH * ((std::min(std::min(v0.y, v1.y), v2.y))+1)/2.f;
         boundXmax = framebufferW * ((std::max(std::max(v0.x, v1.x), v2.x))+1)/2.f;
         boundYmax = framebufferH * ((std::max(std::max(v0.y, v1.y), v2.y))+1)/2.f;
+        
+
         
                 
         
@@ -237,11 +242,15 @@ class RasterizeTriangles : public StageProcedure {
                     &frag.bias2);
 
                 // TODO: make more precise?
-                if ((frag.bias0 + frag.bias1 + frag.bias2) > 1.001f ||
-                    (frag.bias0 + frag.bias1 + frag.bias2) < .99f) continue;
+                //if (((frag.bias0 + frag.bias1 + frag.bias2) > 1.001f) ||
+                //    ((frag.bias0 + frag.bias1 + frag.bias2) < .99f)) continue;
+                if (frag.bias0 < 0.f ||
+                    frag.bias1 < 0.f ||
+                    frag.bias2 < 0.f) continue;
+
 
                 frag.x = x;
-                frag.y = y;
+                frag.y = io->GetFramebuffer()->Height() - y-1;
 
                 fragments.push_back(frag);
             

@@ -18,6 +18,9 @@ struct Color32 {uint8_t r; uint8_t g; uint8_t b; uint8_t a;};
 
 Texture::Texture(uint16_t w_, uint16_t h_, uint8_t * data_) {
     data = new uint8_t[w_*h_*4];
+    if (data_) {
+        memcpy(data, data_, w_*h_*4);
+    }
     w = w_;
     h = h_;
     carule = ColorAdd_Alpha;
@@ -94,7 +97,7 @@ void Texture::SetSampleRule(SampleRule s) {
 
 
 void Texture::PutPixel(uint16_t x, uint16_t y, const uint8_t * src) {
-    memcpy(data+4*(x+y*w), carule(src, data+4*(x+y*w)), 4);
+    memcpy(data+4*(x+y*w), carule(src, data+4*(x+y*w)), 4);   
 }
 
 void Texture::PutPixel(uint16_t x, uint16_t y, const Color * srcC) {
@@ -210,7 +213,8 @@ uint8_t * ColorAdd_None(const uint8_t * src, const uint8_t * dest) {
 
 uint8_t * ColorAdd_Alpha(const uint8_t * src, const uint8_t * dest) {
     static Color32 out;
-    static float alpha = (src[3] / (float)UINT8_MAX);
+    static float alpha;
+    alpha = (src[3] / (float)UINT8_MAX);
     out.r = dest[0] + src[0]*alpha;
     out.g = dest[1] + src[1]*alpha;
     out.b = dest[2] + src[2]*alpha;

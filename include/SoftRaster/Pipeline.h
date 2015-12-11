@@ -202,9 +202,8 @@ class RuntimeIO {
 };
 
 
-#include <SoftRaster/PipelineImpl.hpp>
-
 }
+#include <SoftRaster/PipelineImpl.hpp>
 
 
 #endif

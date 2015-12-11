@@ -3,6 +3,12 @@
 #include <SoftRaster/Primitives.h>
 #include <cassert>
 
+#ifdef SR_PROGRAM_DIAGNOSTICS
+#include <iostream>
+const char * SR_PD_header_c = "[SoftRaster]: ";
+#endif
+
+
 using namespace SoftRaster;
 
 const char * p_error_c__begin_signature_mismatch = "ERROR: The first StageProcedure must accept just one UserVertex as its input.";
@@ -83,16 +89,21 @@ void Pipeline::Program::Run(
     static RuntimeIO runtimeIO;
     
 
-
+    #ifdef SR_PROGRAM_DIAGNOSTICS
+        std::cout << SR_PD_header_c << "Starting Run: (" 
+                  << cachedProcs.size() << " stages, vertex=" 
+                  << sizeofVertex << "Bytes)" << std::endl;
+    #endif
 
 
     runtimeIO.RunSetup(v, sizeofVertex, num, framebuffer);
 
+    uint32_t numIters;
     for(uint32_t i = 0; i < cachedProcs.size(); ++i) {
         runtimeIO.NextProc(cachedProcs[i]);
+        numIters = runtimeIO.GetIterationCount();
 
-
-        for(uint32_t n = 0; n < num; ++n) {
+        for(uint32_t n = 0; n < numIters; ++n) {
             (*cachedProcs[i])(&runtimeIO);
             runtimeIO.NextIter();
         }
@@ -119,12 +130,17 @@ void RuntimeIO::RunSetup(
     Texture * framebuffer
 ) {
     sizeofVertex = szVertex;
-    commitCount = 0;
+
+    // For setup, we basically add a proxy run to count as our first run.
+    // NextProc will then prepare the first prop for us.
+    commitCount = numIterations;
 
     PrepareOutputCache(szVertex*numIterations);
     memcpy(outputCache, vData, szVertex*numIterations);
     fb = framebuffer;
+
 }
+
 
 
 void RuntimeIO::NextProc(const StageProcedure * p) {
@@ -145,7 +161,7 @@ void RuntimeIO::NextProc(const StageProcedure * p) {
     outputSize = SignatureSize(p->OutputSignature(), sizeofVertex);
 
     auto iStack = input.Get();
-    
+    argInLocs.push_back(0);
     while(!iStack.empty()) {
         argInLocs.push_back(
             (argInLocs.empty() ? 
@@ -157,7 +173,9 @@ void RuntimeIO::NextProc(const StageProcedure * p) {
         ); 
         iStack.pop();
     }
+
     auto oStack = output.Get();
+    argOutLocs.push_back(0);
     while(!oStack.empty()) {
         argOutLocs.push_back(
             (argOutLocs.empty() ? 
@@ -183,8 +201,16 @@ void RuntimeIO::NextProc(const StageProcedure * p) {
 
     // Our output from the last run is always our input to the next run.
     std::swap(outputCache, inputCache);
+
     inputCacheIter = inputCache;
     outputCacheIter = outputCache;
+
+    #ifdef SR_PROGRAM_DIAGNOSTICS
+        std::cout << SR_PD_header_c << "Next stage: "
+                  << "I: " << inputSize << " B\tO: " << outputSize << "B\t|" 
+                  << procIterCount << " iterations" << std::endl; 
+    #endif
+
 }
 
 
