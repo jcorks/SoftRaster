@@ -84,7 +84,7 @@ class Texture {
 
     /// \brief Sets how pixels should interact when editing pixel data.
     ///
-    void SetColorRules(ColorAddRule);
+    void SetBlendRule(ColorAddRule);
 
     /// \brief Sets how pixels should be read.
     ///

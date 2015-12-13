@@ -9,7 +9,7 @@ namespace SoftRaster {
 ///
 StageProcedure * CreateRasterizer(
     Polygon shape,
-    DepthBuffering d= DepthBuffering::On
+    DepthBuffering d= DepthBuffering::BytePrecision
 );
 
 

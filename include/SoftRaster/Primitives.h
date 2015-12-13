@@ -3,6 +3,7 @@
 
 namespace SoftRaster {
 
+///
 enum class Polygon {
     Triangles,
     Lines,
@@ -10,8 +11,10 @@ enum class Polygon {
 };
 
 enum class DepthBuffering {
-    On,
-    Off
+    BytePrecision,
+    ShortPrecision,
+    FloatPrecision,
+    None
 };
 
 enum class DataType {
@@ -22,6 +25,7 @@ enum class DataType {
     Vector3,
     Vector4,
     Mat4,
+    Fragment,
     UserVertex
 };
 
@@ -43,6 +47,16 @@ struct Vector4 {
     float y;
     float z;
     float w;
+};
+
+struct Fragment {
+    uint16_t x;
+    uint16_t y;
+
+    float bias0;
+    float bias1;
+    float bias2;
+
 };
 
 

@@ -78,7 +78,7 @@ Texture & Texture::operator=(const Texture & t) {
 
 
 
-void Texture::SetColorRules(ColorAddRule ca) {
+void Texture::SetBlendRule(ColorAddRule ca) {
     switch(ca) {
       case ColorAddRule::None:      carule = ColorAdd_None;    break;
       case ColorAddRule::Alpha:     carule = ColorAdd_Alpha;   break;
@@ -215,10 +215,12 @@ uint8_t * ColorAdd_Alpha(const uint8_t * src, const uint8_t * dest) {
     static Color32 out;
     static float alpha;
     alpha = (src[3] / (float)UINT8_MAX);
-    out.r = dest[0] + src[0]*alpha;
-    out.g = dest[1] + src[1]*alpha;
-    out.b = dest[2] + src[2]*alpha;
-    out.a = dest[3] + src[3]*alpha;
+    out.r = dest[0]*(1-alpha) + src[0]*alpha;
+    out.g = dest[1]*(1-alpha) + src[1]*alpha;
+    out.b = dest[2]*(1-alpha) + src[2]*alpha;
+    out.a = dest[3]*(1-alpha) + src[3]*alpha;
+    
+
     return (uint8_t *)&out;
 }
 

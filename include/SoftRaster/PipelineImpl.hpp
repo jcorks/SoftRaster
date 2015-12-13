@@ -62,6 +62,10 @@ void RuntimeIO::WriteNext(const T * g) {
     if (sizeof(T) != argOutLocs[iterSlotOut+1] - argOutLocs[iterSlotOut]) {
         SR_RT_DEBUG_print(true, false, currentProcIter, procIterCount, "WriteNext| Sizeof type does not match registered type slot size.");
     }
+
+    if (outputCache - outputCacheIter+argOutLocs[iterSlotOut] > outputCacheSize) {
+        SR_RT_DEBUG_print(false, false, currentProcIter, procIterCount, "WriteNext| Internal error: write action exceeds buffer store. THIS SHOULD NOT HAPPEN");
+    }
   #endif
     memcpy(outputCacheIter+argOutLocs[iterSlotOut++], g, sizeof(T));
 }
@@ -75,6 +79,9 @@ void RuntimeIO::WriteSlot(uint32_t slot, const T * g) {
     
     if (sizeof(T) != argOutLocs[slot+1] - argOutLocs[slot]) {
         SR_RT_DEBUG_print(true, false, currentProcIter, procIterCount, "WriteSlot| Sizeof type does not match registered type slot size.");
+    }
+    if (outputCache - outputCacheIter+argOutLocs[iterSlotOut] > outputCacheSize) {
+        SR_RT_DEBUG_print(false, false, currentProcIter, procIterCount, "WriteNext| Internal error: write action exceeds buffer store. THIS SHOULD NOT HAPPEN");
     }
   #endif
     memcpy(outputCacheIter+argOutLocs[slot], g, sizeof(T));

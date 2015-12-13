@@ -3,7 +3,7 @@
 
 /* SoftRaster
    Johnathan Corkery, 2015 */
-
+#define SOFTRASTER_RT_CHECKS
 #include <SoftRaster/Context.h>
 #include <SoftRaster/Texture.h>
 #include <SoftRaster/StageProcedure.h>

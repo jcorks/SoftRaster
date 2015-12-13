@@ -67,6 +67,49 @@ class BarycentricTransform {
 };
     
 
+class DepthBuffer {
+  public:
+    virtual void Reset(uint16_t, uint16_t) = 0;
+    virtual bool Test(uint16_t, uint16_t, float) = 0;
+
+};
+
+
+class DepthBuffer8Bit : public DepthBuffer {
+  public:
+    DepthBuffer8Bit() {
+        data = nullptr;
+        numUnits = 0;
+        w = 0;
+        h = 0;
+    }
+    void Reset(uint16_t fbW, uint16_t fbH) {
+        w = fbW;
+        h = fbH;
+        if (numUnits < fbW * fbH) {
+            numUnits = fbW * fbH;
+            data = (uint8_t*)realloc(data, numUnits);
+        }
+        memset(data, 0, numUnits);        
+    }
+    bool Test(uint16_t x, uint16_t y, float homogenousZ) {
+        if (homogenousZ < -1.f || homogenousZ > 1.f) return false;
+        uint8_t val = (homogenousZ = (homogenousZ+1.f)/2.f) * UINT8_MAX;
+        if (val > data[x + y*w]) {
+            data[x + y*w] = val;
+            return true;
+        }
+        return false;
+    }
+    
+  private:
+    uint8_t * data;
+    uint16_t w;
+    uint16_t h;
+    uint32_t numUnits;
+};
+
+
 
 // The built in stages are a little strange
 // because they will often need to pass information that they don't use
@@ -75,198 +118,41 @@ class BarycentricTransform {
 //
 
 
-// Rasterize triangles stage
-// IN:
-//  - Vertex (3 first elements should be x, y, z
-// Out:
-//  - uint16_t (fragment x)
-//  - uint16_t (fragment y)
-//  - float    (Bias towards vertex 0);
-//  - float    (Bias towards vertex 1);
-//  - float    (Bias towards vertex 2);
-//  - Vertex   (0)
-//  - Vertex   (1)
-//  - Vertex   (2)
-// Bias allows for varying behavior
-class RasterizeTriangles : public StageProcedure {
+class Rasterizer : public StageProcedure {
   public:
-    SignatureIO InputSignature() const {
-        SignatureIO input;
+    Rasterizer(Polygon p, DepthBuffering d);
 
-        input.AddSlot(DataType::UserVertex);
-    
-        return input;
-    }
+    SignatureIO InputSignature() const;
+    SignatureIO OutputSignature() const;
 
 
-    SignatureIO OutputSignature() const {
-        SignatureIO output;
-        
-        output.AddSlot(DataType::Int);
-        output.AddSlot(DataType::Int);
-
-        output.AddSlot(DataType::Float);
-        output.AddSlot(DataType::Float);
-        output.AddSlot(DataType::Float);
-
-        output.AddSlot(DataType::UserVertex);
-        output.AddSlot(DataType::UserVertex);
-        output.AddSlot(DataType::UserVertex);
-
-
-
-
-        return output;
-    }
-
-
-    void operator()(RuntimeIO * io_) {
-        io = io_;
-
-        // initial setup()
-        if (io->GetCurrentIteration() == 0) {
-            NewRun();    
-        }
-        
-
-        PushVertex();
-        count++;
-
-        if (count >= 3){
-            if (!PassesClipTest()) return;
-        
-            // Populates fragments
-            PopulateFragments();
-
-    
-            // commit frags
-            FragmentInfo * out;
-            const int offset = sizeof(int)*2 + sizeof(float)*3;
-            int sizeofVertex = io->SizeOf(DataType::UserVertex);
-            for(int i = 0; i < fragments.size(); ++i) { 
-                out = &fragments[i];
-                
-                io->WriteNext<int>(&out->x);
-                io->WriteNext<int>(&out->y);
-
-                io->WriteNext<float>(&out->bias0);
-                io->WriteNext<float>(&out->bias1);
-                io->WriteNext<float>(&out->bias2);
-                
-                memcpy(io->GetWritePointer() +offset,                srcV[0], sizeofVertex);
-                memcpy(io->GetWritePointer() +offset+sizeofVertex,   srcV[1], sizeofVertex);
-                memcpy(io->GetWritePointer() +offset+sizeofVertex*2, srcV[2], sizeofVertex);
-    
-                io->Commit();
-            }
-            count = 0;
-        }
-    }
+    void operator()(RuntimeIO * io_);
     
 
   private:
-    struct FragmentInfo {
-        int x; int y;
-        float bias0; 
-        float bias1;
-        float bias2;
-    };
+
 
 
     // sets up the stage for a new set of vertices
-    void NewRun() {
-        count = 0;
-        if (srcV[0]) delete[] srcV[0];  
-        if (srcV[1]) delete[] srcV[1];  
-        if (srcV[2]) delete[] srcV[2];  
-        srcV[0] = new uint8_t[io->SizeOf(DataType::UserVertex)];
-        srcV[1] = new uint8_t[io->SizeOf(DataType::UserVertex)];
-        srcV[2] = new uint8_t[io->SizeOf(DataType::UserVertex)];   
+    void NewRun();
 
-        framebufferW = io->GetFramebuffer()->Width();
-        framebufferH = io->GetFramebuffer()->Height();
-    }
-
-    inline void PushVertex() const {
-        memcpy(srcV[count], io->GetReadPointer(), io->SizeOf(DataType::UserVertex));
-    };
 
 
     // Rasterization of the triangle 
     // by testing if fragments lie within the triangle
     // using barycentric coordinates
-    void PopulateFragments() {
-        fragments.clear();
-
-        static Vector3 v0, v1, v2;
-        static FragmentInfo frag;
-        int boundXmin, boundXmax,
-            boundYmin, boundYmax;
-    
-
-
-
-        v0 = *((Vector3*)srcV[0]);
-        v1 = *((Vector3*)srcV[1]);
-        v2 = *((Vector3*)srcV[2]);
-
-
-        // prepares the barycentric transfrom
-        // used to test whether or not points are within the triangle
-        // and to produce the varying biases. SO USEFUL
-        BarycentricTransform baryTest(&v0, &v1, &v2,
-                                      io->GetFramebuffer()->Width(), io->GetFramebuffer()->Height()              
-                                      );
-
-
-        // first lets decide what texels should even be considered
-        // A superset of the texels to test would be the bounding box of the triangle
-        boundXmin = framebufferW * ((std::min(std::min(v0.x, v1.x), v2.x))+1)/2.f;
-        boundYmin = framebufferH * ((std::min(std::min(v0.y, v1.y), v2.y))+1)/2.f;
-        boundXmax = framebufferW * ((std::max(std::max(v0.x, v1.x), v2.x))+1)/2.f;
-        boundYmax = framebufferH * ((std::max(std::max(v0.y, v1.y), v2.y))+1)/2.f;
-        
-
-        
-                
-        
-        for(int y = boundYmin; y < boundYmax; ++y) {
-            if (y < 0 || y >= framebufferH) continue;   
-            for(int x = boundXmin; x < boundXmax; ++x) {
-                if (x < 0 || x >= framebufferW) continue;                
-
-                // transforms cartesion coords into barycentric coordinates
-                baryTest.Transform(x, y, 
-                    &frag.bias0,
-                    &frag.bias1,
-                    &frag.bias2);
-
-                // TODO: make more precise?
-                //if (((frag.bias0 + frag.bias1 + frag.bias2) > 1.001f) ||
-                //    ((frag.bias0 + frag.bias1 + frag.bias2) < .99f)) continue;
-                if (frag.bias0 < 0.f ||
-                    frag.bias1 < 0.f ||
-                    frag.bias2 < 0.f) continue;
-
-
-                frag.x = x;
-                frag.y = io->GetFramebuffer()->Height() - y-1;
-
-                fragments.push_back(frag);
-            
-            }
-        }
-    
-
-    }
+    void (*PopulateFragments)(Rasterizer *);
 
     // returns false if all tris are outside of
     // clipping space. That is, returns false if
     // all xyz of each vertex have a magnitude greater than 1
-    bool PassesClipTest() {
-        // TODO
-        return true;
-    }
+    bool PassesClipTest();
+
+
+    // impl
+    static void PopulateFragments_Triangles(Rasterizer *);
+    static void PopulateFragments_Lines(Rasterizer *);
+    static void PopulateFragments_Points(Rasterizer *);
 
 
 
@@ -281,9 +167,12 @@ class RasterizeTriangles : public StageProcedure {
 
 
 
-    std::vector<FragmentInfo> fragments;
+    std::vector<Fragment> fragments;
     RuntimeIO * io;
     uint8_t count;
+    uint8_t vertexCount;
+    DepthBuffer * PassesDepth;
+
 };
 
 
@@ -294,5 +183,245 @@ class RasterizeTriangles : public StageProcedure {
 
 
 StageProcedure * SoftRaster::CreateRasterizer(Polygon p, DepthBuffering d) {
-    return new RasterizeTriangles();
+    return new Rasterizer(p, d);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Rasterizer impl
+
+Rasterizer::Rasterizer(Polygon p, DepthBuffering d) {
+    switch(p) {
+      case Polygon::Triangles: 
+        PopulateFragments = PopulateFragments_Triangles;
+        vertexCount = 3; 
+        break;
+
+      case Polygon::Lines: 
+        PopulateFragments = PopulateFragments_Lines;
+        vertexCount = 2; 
+        break;
+
+      case Polygon::Points:
+        PopulateFragments = PopulateFragments_Points;
+        vertexCount = 1; 
+        break;
+
+    }
+
+    switch(d) {
+      case DepthBuffering::None:           PassesDepth = new DepthBuffer8Bit;  break;
+      case DepthBuffering::BytePrecision:  PassesDepth = new DepthBuffer8Bit;  break;
+      case DepthBuffering::FloatPrecision: PassesDepth = new DepthBuffer8Bit; break;
+    }
+
+    srcV[0] = nullptr;
+    srcV[1] = nullptr;
+    srcV[2] = nullptr;
+
+}
+
+
+
+StageProcedure::SignatureIO Rasterizer::InputSignature() const {
+    SignatureIO input;
+
+    input.AddSlot(DataType::UserVertex);
+
+    return input;
+}
+
+
+StageProcedure::SignatureIO Rasterizer::OutputSignature() const {
+    SignatureIO output;
+    
+    output.AddSlot(DataType::Fragment);
+
+    for(uint32_t i = 0; i < vertexCount; ++i) {
+        output.AddSlot(DataType::UserVertex);
+    }
+
+    return output;
+}
+
+
+
+
+// actually performs the 
+void Rasterizer::operator()(RuntimeIO * io_) {
+
+    // initial setup()
+    if (io_->GetCurrentIteration() == 0) {
+        io = io_;
+        count = 0;
+
+        // reallocate vertex stores
+        for(uint32_t i = 0; i < vertexCount; ++i) {
+            if (srcV[i]) delete[] srcV[i];  
+            srcV[i] = new uint8_t[io->SizeOf(DataType::UserVertex)];   
+        }
+        framebufferW = io->GetFramebuffer()->Width();
+        framebufferH = io->GetFramebuffer()->Height();
+
+        PassesDepth->Reset(framebufferW, framebufferH);
+
+    }
+
+    // Copy the vertex into our stores
+    memcpy(srcV[count++], io->GetReadPointer(), io->SizeOf(DataType::UserVertex));
+
+
+    // If our polygon is complete, actually render
+    if (count >= vertexCount){
+        //if (!PassesClipTest()) return;
+    
+        // clear out old results
+        fragments.clear();
+
+
+        // Populates fragments
+        PopulateFragments(this);
+
+
+        // commit frags
+        Fragment * out;
+        const int offset = sizeof(Fragment);
+        int sizeofVertex = io->SizeOf(DataType::UserVertex);
+        float v0z = ((Vector3*)(srcV[0]))->z;
+        float v1z = ((Vector3*)(srcV[1]))->z;
+        float v2z = ((Vector3*)(srcV[2]))->z;
+        for(int i = 0; i < fragments.size(); ++i) { 
+            out = &fragments[i];
+
+            // test the depth 
+            if (!PassesDepth->Test(out->x, out->y, 
+                out->bias0 * v0z + 
+                out->bias1 * v1z +
+                out->bias2 * v2z   )) continue;
+
+            io->WriteNext<Fragment>(out);
+            
+            
+
+            memcpy(io->GetWritePointer() +offset,                srcV[0], sizeofVertex);
+            memcpy(io->GetWritePointer() +offset+sizeofVertex,   srcV[1], sizeofVertex);
+            memcpy(io->GetWritePointer() +offset+sizeofVertex*2, srcV[2], sizeofVertex);
+
+            
+
+            io->Commit();
+        }
+        count = 0;
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+// Mode specific implementation
+
+
+// Rasterization of the triangle 
+// by testing if fragments lie within the triangle
+// using barycentric coordinates
+void Rasterizer::PopulateFragments_Triangles(Rasterizer * r) {
+
+    static Vector3 v0, v1, v2;
+    static Fragment frag;
+    int boundXmin, boundXmax,
+        boundYmin, boundYmax;
+
+
+
+
+    v0 = *((Vector3*)r->srcV[0]);
+    v1 = *((Vector3*)r->srcV[1]);
+    v2 = *((Vector3*)r->srcV[2]);
+
+
+    // prepares the barycentric transfrom
+    // used to test whether or not points are within the triangle
+    // and to produce the varying biases. SO USEFUL
+    BarycentricTransform baryTest(&v0, &v1, &v2,
+                                  r->io->GetFramebuffer()->Width(), r->io->GetFramebuffer()->Height()              
+                                  );
+
+
+    // first lets decide what texels should even be considered
+    // A superset of the texels to test would be the bounding box of the triangle
+    boundXmin = r->framebufferW * ((std::min(std::min(v0.x, v1.x), v2.x))+1)/2.f;
+    boundYmin = r->framebufferH * ((std::min(std::min(v0.y, v1.y), v2.y))+1)/2.f;
+    boundXmax = r->framebufferW * ((std::max(std::max(v0.x, v1.x), v2.x))+1)/2.f;
+    boundYmax = r->framebufferH * ((std::max(std::max(v0.y, v1.y), v2.y))+1)/2.f;
+    
+
+    
+            
+    
+    for(int y = boundYmin; y < boundYmax; ++y) {
+        if (y < 0 || y >= r->framebufferH) continue;   
+        for(int x = boundXmin; x < boundXmax; ++x) {
+            if (x < 0 || x >= r->framebufferW) continue;                
+
+            // transforms cartesion coords into barycentric coordinates
+            baryTest.Transform(x, y, 
+                &frag.bias0,
+                &frag.bias1,
+                &frag.bias2);
+
+            if (frag.bias0 < 0.f ||
+                frag.bias1 < 0.f ||
+                frag.bias2 < 0.f) continue;
+
+
+            frag.x = x;
+            frag.y = r->io->GetFramebuffer()->Height() - y-1;
+
+            r->fragments.push_back(frag);
+        
+        }
+    }
+
+
+}
+
+
+void Rasterizer::PopulateFragments_Lines(Rasterizer *) {
+    // TODO
+}
+
+
+void Rasterizer::PopulateFragments_Points(Rasterizer *) {
+    // TODO
+}
+
+
+
+
+
+
+
+
+

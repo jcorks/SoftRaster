@@ -15,8 +15,8 @@ const char * p_error_c__begin_signature_mismatch = "ERROR: The first StageProced
 const char * p_error_c__end_signature_mismatch   = "ERROR: The last StageProcedure must not return anything";
 const char * p_error_c__io_mismatch              = "ERROR: The current end of the pipeline's return signature does not match the incoming StageProcedure's input signature.";
 
-const uint32_t pipeline_program_init_cache_size     = 1024 * 512; // 512 KB should be fine to start
-const float    pipeline_program_cache_resize_factor = 1.1f;
+const uint32_t pipeline_program_init_cache_size     = 512; // 512 KB should be fine to start
+const float    pipeline_program_cache_resize_factor = 1.2f; // rather than increase load factor, just go to how many ytes we need times an offset factor
 
 static uint32_t SignatureSize(const StageProcedure::SignatureIO &, uint32_t sizeofVertex);
 
@@ -118,8 +118,10 @@ void Pipeline::Program::Run(
 RuntimeIO::RuntimeIO() {
     inputCacheSize = pipeline_program_init_cache_size;
     outputCacheSize = pipeline_program_init_cache_size;
-    inputCache = new uint8_t[inputCacheSize];
-    outputCache = new uint8_t[outputCacheSize];
+    inputCache = nullptr;
+    outputCache = nullptr;
+    inputCache = (uint8_t*)realloc(inputCache, inputCacheSize);
+    outputCache = (uint8_t*)realloc(outputCache, outputCacheSize);
 }
 
 
@@ -196,11 +198,12 @@ void RuntimeIO::NextProc(const StageProcedure * p) {
     currentProcIter = 0;
     commitCount     = 0;
 
-    PrepareInputCache(procIterCount * (inputSize));
+    PrepareInputCache (procIterCount * (inputSize));
     PrepareOutputCache(procIterCount * (inputSize));
 
     // Our output from the last run is always our input to the next run.
     std::swap(outputCache, inputCache);
+    std::swap(outputCacheSize, inputCacheSize);
 
     inputCacheIter = inputCache;
     outputCacheIter = outputCache;
@@ -228,19 +231,25 @@ void RuntimeIO::NextIter() {
 
 void RuntimeIO::PrepareInputCache(uint32_t b) {
     if (b < inputCacheSize) return;
-    inputCacheSize*=pipeline_program_cache_resize_factor;
+
+    uint32_t offset = inputCacheIter - inputCache;
+    inputCacheSize = b * pipeline_program_cache_resize_factor;
     inputCache = (uint8_t*)realloc(inputCache, inputCacheSize);
+    inputCacheIter = inputCache + offset;
 }
 
 void RuntimeIO::PrepareOutputCache(uint32_t b) {
     if (b < outputCacheSize) return;
-    outputCacheSize*=pipeline_program_cache_resize_factor;
+
+    uint32_t offset = outputCacheIter - outputCache;
+    outputCacheSize = b * pipeline_program_cache_resize_factor;
     outputCache = (uint8_t*)realloc(outputCache, outputCacheSize);
+    outputCacheIter = outputCache + offset;
 }
 
 void RuntimeIO::Commit() {
     commitCount++;
-    PrepareOutputCache((commitCount+1)*outputSize);
+    PrepareOutputCache((commitCount+10)*outputSize);
     outputCacheIter += outputSize;
     iterSlotOut = 0;
 }
@@ -254,6 +263,7 @@ uint32_t RuntimeIO::SizeOf(DataType type) {
         case DataType::Vector3: return sizeof(Vector3); 
         case DataType::Vector4: return sizeof(Vector4); 
         case DataType::Mat4:    return sizeof(Mat4); 
+        case DataType::Fragment:return sizeof(Fragment);
         case DataType::UserVertex:
             return sizeofVertex;
         default: assert(!"Could not determine size of variable..");
@@ -281,6 +291,7 @@ uint32_t SignatureSize(const StageProcedure::SignatureIO & sig, uint32_t sizeofV
             case DataType::Vector3: size += sizeof(Vector3); break;
             case DataType::Vector4: size += sizeof(Vector4); break;
             case DataType::Mat4:    size += sizeof(Mat4);    break;
+            case DataType::Fragment:size += sizeof(Fragment);break;
             case DataType::UserVertex:
                 size += sizeofVertex; break;
             default: assert(!"Could not determine size of variable..");
