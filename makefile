@@ -16,10 +16,11 @@ SRCS :=./src/Pipeline.cpp \
 OBJS := $(patsubst %.cpp,%.o, $(SRCS))
 
 all: $(OBJS) 
-	ar rcs ./lib/libSoftRaster.a $(OBJS)
+	ar rcs ./lib/libSoftRaster-1.0.a $(OBJS)
+	$(CC) -shared -o ./lib/libSoftRaster-1.0.so $(OBJS)
 
 %.o:
-	$(CC) $(CFLAGS) -I./include/ -c $(patsubst %.o,%.cpp,$@) -o $@
+	$(CC) $(CFLAGS) -fPIC -I./include/ -c $(patsubst %.o,%.cpp,$@) -o $@
 	
 clean:
 	rm -f $(OBJS)

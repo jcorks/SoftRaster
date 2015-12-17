@@ -39,7 +39,7 @@ class Texture {
     enum class Format {
         RGB,       ///< Only the Red, Green, and Blue channels are written respectively. GetAsFormat() expects the input buffer to be Width()*Height()*3 bytes.
         BlendedRGB,///< Same as RGB, but the alpha saturation of each pixel is multiplied to the other color channels. GetAsFormat() expects the input buffer to be Width()*Height()*3
-        Grayscale, ///< Each pixel is the average of all the cahnnels saturation. Only one byte of information is written for each pixel. GetAsFormat() expect the input buffer to be Width()*Height() bytes.
+        Grayscale, ///< Each pixel is the average of all the channels saturation. Only one byte of information is written for each pixel. GetAsFormat() expects the input buffer to be Width()*Height() bytes.
     };
 
 
@@ -60,15 +60,17 @@ class Texture {
     ///
     inline uint16_t Height() const {return h;}
 
-    /// \brief Returns a raw pointer to the data.
+    /// \brief Returns a raw pointer to the image data.
     ///
     /// The data is layed out in a linear format and is Width()*Height()*4 bytes in size.
     /// The first byte is the top left pixel and the last byte is the bottom right pixel of the image.
     /// The data is also editable.
     inline uint8_t * GetData() {return data;}
 
-    /// \brief Resize putting old texData in topleft.
+    /// \brief Resize the Texture allocation, putting old data anchored to the topleft of the image.
     ///
+    /// If the new allocation is greater than the old, pixels outside the 
+    /// old texture are undefined.
     void Resize(uint16_t newWidth, uint16_t newHeight);
     
     /// \brief Resize without copying old data.
@@ -94,15 +96,15 @@ class Texture {
 
     /// \brief Edits the pixel at the given position following the set rules set by SetColorRules().
     ///
-    /// Bounds checking should be handled by the caller.
+    /// Bounds checking is not done and should be handled by the caller.
     ///\{
     void PutPixel  (uint16_t x, uint16_t y, const uint8_t * pixel);
     void PutPixel  (uint16_t x, uint16_t y, const Color * pixel);
     ///\}
 
-    /// \brief Returns the pixel at the given position according to the sampling rule set by SetSamleRule().
+    /// \brief Returns the pixel at the given position according to the sampling rule set by SetSampleRule().
     ///
-    /// Bounds checking should be handled by the caller.
+    /// Bounds checking is not done and should be handled by the caller.
     ///\{
     void GetPixel  (uint16_t x, uint16_t y, uint8_t * pixel);
     void GetPixel  (uint16_t x, uint16_t y, Color * pixel);
@@ -120,7 +122,7 @@ class Texture {
     ///
     /// (x, y) mark the top left of where the source image 
     /// will be placed on the destination image. Pixel blending 
-    /// follows set color rules and pixels outside the destination 
+    /// follows set ColorAddRule, and pixels outside the destination 
     /// Texture are thrown out
     void PutTexture(uint16_t x, uint16_t y, uint16_t maxW, uint16_t maxH, Texture * src);
     

@@ -14,16 +14,28 @@
 
 namespace SoftRaster {
 
-/// \brief The driver of the rasterizer.
-/// Results of a draw are always to a texture.
-/// The context does not own the Texture, but needs a reference
-/// to one to perform the draw.
+/// \brief The driver of the rendering process.
+///
+/// The Context is a high-level interface that manages the rendering state.
+/// It routes input vertex information to the desired Pipeline::Program then commits changes to an attached Texture.
+/// As such, the results of a render are always to a Texture object.
+/// The context does not own the Texture, but needs an alive reference
+/// to one to perform the draw. 
+///
+/// Information to be rendered is passed into the Context
+/// as a user type. The only restrict is that the user type must inherit from 
+/// Vector3. User vertices are supplied in array form and are copied 
+/// into the propgram before running, so the pointer to the vertices
+/// does not need to be kept valid after you're done drawing.
 ///
 class Context {
   public:
     Context(Texture * defaultFramebuffer);
 
-    /// \brief Sets the texture to post rendered results to.
+    /// \brief Sets the framebuffer of the context.
+    /// 
+    /// The framebuffer is the Texture accessible to the Pipeline::Program
+    /// when rendering vertices.
     ///
     void SetFramebuffer   (Texture *);
 
@@ -33,13 +45,17 @@ class Context {
     void UseProgram(Pipeline::Program * program);
 
     /// \brief Renders the given set of vertices according to the 
-    /// Currently set pipeline program to the set framebuffer
+    /// currently set parameters. 
+    ///
+    /// UserVertexT must inherit from Vector3.
     ///
     template<typename UserVertexT>
     void RenderVertices(UserVertexT * VertexArray, uint32_t num);
 
     /// \brief Renders the given set of indices. The indices
     /// refer to the i'th vertex in the initial vertexArray
+    ///
+    /// UserVertexT must inherit from Vector3.
     ///
     template<typename UserVertexT>
     void RenderVerticesIndexed(UserVertexT * VertexArray, uint32_t * indexList, uint32_t numIndices);

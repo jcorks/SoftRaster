@@ -13,19 +13,21 @@ namespace SoftRaster {
 class StageProcedure;
 /// \brief The Pipeline controls how the rendering process occurs. 
 ///
-/// The pipeline is where the stages of rendering are assembled.
-/// Each StageProcedure is added in the order that they should be run in the 
-/// resuling program. Pipeline also does some basic error checking
-/// to make sure you're not making a revious error.
+/// Rendering of vertices is done by following transformations of data over a series of stages.
+/// The Pipeline is an assembling of these stages. 
+/// Each stage is added via PushExecutionStage where the push 
+/// order is the order in which each stage will process vertices.
+/// When the Pipeline is ready to be used, it must be compiled into a
+/// Pipeline::Program, where it can then be passed to a Context instance for rendering.
 ///
 class Pipeline {
   public:
 
     /// \brief An assembled pipeline that can process vertices.
     ///
-    /// In this form, there is no external interface to modify the pipeline
-    /// The program is the unit that actually performs the rendering. 
-    /// Refer to Context for running.
+    /// In this form, there is no external interface to modify the pipeline.
+    /// Though, the program is the unit that actually performs the rendering. 
+    /// Refer to Context for usage.
     ///
     class Program {
       public:
@@ -56,17 +58,20 @@ class Pipeline {
 
     /// \brief  Adds an additional execution stage
     ///
-    /// Returns empty string if no error, else returns a string elaborating on what went wrong
+    /// Returns empty string if no error, else returns a string elaborating on what went wrong.
     /// When compiled into a program, the stages are run sequentially, passing
     /// output to the next stage's input.
+    ///
+    /// When pushing stages, it is important to note that
+    /// the first stage expects there to be only one UserVertex.
     std::string PushExecutionStage (StageProcedure *);
 
     /// \brief Creates a rendering program.
     ///
     /// Takes all pushed execution stages and creates a
     /// Pipeline::Program instance reflecting the execution pipeline
-    /// assembled. The oder in which they are assembled is the 
-    /// order in which they were pushed
+    /// assembled. The order in which they are assembled is the 
+    /// order in which they will process vertices.
     Program * Compile();
 
     /// \brief Rids the pipeline of all pushed stages.
@@ -83,22 +88,26 @@ class Pipeline {
 /// \brief Holds the runtime information for each iteration of the Procedure.
 ///
 /// RuntimeIO holds the iteractive input/ouput state of the StageProcedure
-/// during the running of the pipeline stages. The IO state is governed by  
+/// during the rendering. The IO state is governed by  
 /// the SignatureIO instances assigned in InputSignature() and OutputSignature(). 
 ///
-/// It's important to note that the Read/Write tmeplate typename pramaters are 
+/// It's important to note that the Read/Write template typename paramaters are 
 /// just type hints and dont actually affect how many bytes are read or written.
 ///
 class RuntimeIO {
   public:
     RuntimeIO();
 
-    /// \brief Reads the next DataPrimitive as a pointer to a variable to type T.
+    /// \brief Reads the next DataPrimitive into the given pointer. 
+    ///
+    /// The number of bytes read is equal to the SizeOf the slot currently being read
     ///
     template<typename T>
     void ReadNext(T *);
 
-    /// \brief Reads the slot'th variable in the input. This does not affect ReadNext calls.
+    /// \brief Reads the slot'th variable in the input. 
+    ///
+    /// This does not affect ReadNext calls.
     ///
     template<typename T>
     void ReadSlot(uint32_t slot, T *);
@@ -106,36 +115,38 @@ class RuntimeIO {
     /// \brief Returns the start of the memory block containing the 
     /// input information for this iteration. 
     /// 
-    /// ReadStackSize() returns the size of the input memory block in bytes. 
+    /// GetReadSize() returns the size of the input memory block in bytes. 
     ///
     inline uint8_t * GetReadPointer() { return inputCacheIter; }
 
     /// \brief returns the number of bytes of the memory block 
-    /// pointed to by ReadStackPointer()
+    /// pointed to by GetReadPointer()
     ///
     inline uint32_t GetReadSize() const {return inputSize; }
 
 
-    /// \brief Writes the next registered data slot to be passed
+    /// \brief Writes the next registered data slot to be passed in.
+    ///
+    /// The number of bytes written is equal to the SizeOf() the slot currently being read
     ///
     template<typename T>
     void WriteNext(const T *);
 
-    /// \brief Writes the data to the slot assigned in the InputSignature() call.
+    /// \brief Writes the data to the slot assigned in the StageProcedure::OutputSignature() call.
     ///
     template<typename T>
     void WriteSlot(uint32_t slot, const T *);
 
 
     /// \brief Returns the start of the memory block containing the 
-    /// input information for this iteration. 
+    /// output information for this iteration. 
     /// 
-    /// ReadStackSize() returns the size of the input memory block in bytes. 
+    /// GetWriteSize() returns the size of the input memory block in bytes. 
     ///
     inline uint8_t * GetWritePointer() { return outputCacheIter; }
 
     /// \brief returns the number of bytes of the memory block 
-    /// pointed to by ReadStackPointer()
+    /// pointed to by GetWritePointer()
     ///
     inline uint32_t GetWriteSize() const {return inputSize; }
 
@@ -145,7 +156,7 @@ class RuntimeIO {
     ///
     inline bool IsLastIteration()const          { return currentProcIter+1 == procIterCount; }
 
-    /// \brief Returns the current iteration of the procedure.
+    /// \brief Returns the current iteration of the procedure starting at 0.
     ///
     inline uint32_t GetCurrentIteration() const { return currentProcIter; }
 
@@ -154,7 +165,7 @@ class RuntimeIO {
     ///
     inline uint32_t GetIterationCount()const    { return procIterCount;   }
 
-    /// \brief Returns the framebuffer
+    /// \brief Returns the target framebuffer for this render.
     ///
     inline Texture * GetFramebuffer()const { return fb; }
 
@@ -162,9 +173,15 @@ class RuntimeIO {
 
     /// \brief Commits the written data and marks the end of the output iteration
     ///
+    /// For each commit made by the running StateProcedure, an additional iteration of the
+    /// next StageProcedure is queued with the written outputs as its input.
+    /// If a stage does not Commit before exhausting all of its own iterations,
+    /// no additional stages are run. The order in which data is committed is not guaranteed 
+    /// to be the same order it is run. 
     void Commit();
     
-    /// \brief Returns the size of the data type
+    /// \brief Returns the size of the given data type. Note that UserVertex is based
+    /// on the what vertex type is being rendered with. (See Context).
     ///
     uint32_t SizeOf(DataType);
 
